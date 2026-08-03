@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quran Thematic Dashboard</title>
+<style>
+  :root{
+    --bg:#0f1720; --panel:#16212e; --panel2:#1d2b3a; --ink:#e8eef5; --muted:#9fb2c5;
+    --accent:#2dd4bf; --accent2:#38bdf8; --gold:#e3b23c; --line:#26374a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",system-ui,-apple-system,sans-serif;background:
+    radial-gradient(1200px 600px at 80% -10%,#183042 0%,transparent 60%),var(--bg);color:var(--ink)}
+  header{padding:28px 24px 10px;text-align:center}
+  header h1{margin:0;font-size:30px;letter-spacing:.5px}
+  header .sub{color:var(--muted);margin-top:6px;font-size:14px}
+  .arabic{font-size:26px;color:var(--gold);margin:8px 0 0;direction:rtl}
+  .disclaimer{max-width:900px;margin:14px auto 0;background:#20303f;border:1px solid var(--line);
+    border-radius:10px;padding:10px 14px;color:var(--muted);font-size:12.5px}
+  .stats{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;padding:20px}
+  .stat{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:14px;padding:14px 18px;min-width:140px;text-align:center}
+  .stat .num{font-size:26px;font-weight:700;color:var(--accent)}
+  .stat .lbl{font-size:12px;color:var(--muted);margin-top:4px}
+  .toolbar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:6px 16px 18px}
+  .toolbar input{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:10px 14px;border-radius:10px;width:min(420px,90vw);font-size:14px}
+  .toolbar select{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:10px 12px;border-radius:10px;font-size:13px;cursor:pointer}
+  #preloadBtn{background:var(--panel);border:1px solid var(--accent);color:var(--accent);
+    padding:10px 14px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
+  #preloadBtn:hover{background:var(--accent);color:#04201c}
+  #preloadBtn:disabled{opacity:.7;cursor:default}
+  .audio-btn{background:transparent;border:1px solid var(--line);color:var(--accent2);
+    border-radius:6px;padding:1px 7px;font-size:12px;cursor:pointer}
+  .audio-btn:hover{border-color:var(--accent2);background:#182a3a}
+  .playall-btn{align-self:flex-start;background:#1c3540;border:1px solid var(--accent2);
+    color:var(--accent2);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;
+    font-weight:600;margin-bottom:2px}
+  .playall-btn:hover{background:var(--accent2);color:#04263a}
+  /* mini player bar */
+  #playerBar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:50;
+    display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#1d2b3a,#16212e);
+    border:1px solid var(--accent);border-radius:14px;padding:10px 14px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);min-width:min(520px,92vw)}
+  #playerBar.player-hidden{display:none}
+  #playerBar button{background:#14222f;border:1px solid var(--line);color:var(--ink);
+    width:36px;height:36px;border-radius:9px;cursor:pointer;font-size:15px}
+  #playerBar button:hover{border-color:var(--accent)}
+  #pbPlay{background:var(--accent);color:#04201c;border-color:var(--accent);font-weight:700}
+  .pb-info{flex:1;min-width:0}
+  .pb-ref{font-weight:700;color:var(--gold);font-size:14px}
+  .pb-sub{color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pb-rep{font-size:12px;color:var(--accent2);font-weight:600;white-space:nowrap}
+  #repeatSel{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:10px 12px;border-radius:10px;font-size:13px;cursor:pointer}
+  #clearCacheBtn{background:var(--panel);border:1px solid #7a4a4a;color:#e79a9a;
+    padding:10px 14px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
+  #clearCacheBtn:hover{background:#7a4a4a;color:#fff}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:0 16px 18px}
+  .filters button{background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    padding:7px 13px;border-radius:20px;font-size:12.5px;cursor:pointer;transition:.15s}
+  .filters button:hover{color:var(--ink);border-color:var(--accent)}
+  .filters button.active{background:var(--accent);color:#04201c;border-color:var(--accent);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;
+    padding:0 20px 40px;max-width:1400px;margin:0 auto}
+  .card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+  .card h3{margin:0;font-size:17px;display:flex;align-items:center;gap:8px}
+  .card .icon{font-size:20px}
+  .card .cat{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent2)}
+  .card ul{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:13.5px;line-height:1.6}
+  .card ul li b{color:var(--ink)}
+  .card .note{font-size:11.5px;color:#7d93a8;border-top:1px dashed var(--line);padding-top:8px}
+  /* associated ayahs */
+  .ayah-toggle{background:#1c3540;border:1px solid var(--accent);color:var(--accent);
+    padding:7px 12px;border-radius:9px;font-size:12.5px;cursor:pointer;font-weight:600;text-align:left}
+  .ayah-toggle:hover{background:var(--accent);color:#04201c}
+  .ayah-list{display:flex;flex-direction:column;gap:6px;margin-top:2px}
+  .ayah{background:#14222f;border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .ayah:hover{border-color:var(--accent2)}
+  .ayah-head{display:flex;align-items:center;gap:10px}
+  .ayah .ref{font-weight:700;color:var(--gold);font-size:12.5px;min-width:70px}
+  .ayah .desc{color:var(--ink);font-size:12.5px;flex:1}
+  .ayah-actions{display:flex;align-items:center;gap:6px}
+  .ayah-actions a{color:var(--accent2);text-decoration:none;font-size:14px}
+  .copy-btn{background:transparent;border:1px solid var(--line);color:var(--muted);
+    border-radius:6px;padding:1px 6px;font-size:12px;cursor:pointer}
+  .copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .copy-btn.copied{border-color:var(--accent);color:var(--accent)}
+  .ayah-trans{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);color:var(--muted)}
+  .ayah-trans .ar-line{direction:rtl;color:var(--gold);font-size:16px;line-height:1.9;margin-bottom:4px}
+  .ayah-trans .en-line{font-size:12.5px;color:var(--ink);line-height:1.5}
+  .trans-err{font-size:11.5px;color:#7d93a8}
+  .card.expanded{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+  .hidden{display:none}
+  a{color:var(--accent2)}
+  /* view tabs */
+  .tabs{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:4px 16px 10px}
+  .tabs button{background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    padding:9px 18px;border-radius:10px;font-size:13.5px;cursor:pointer;font-weight:600}
+  .tabs button.active{background:var(--accent2);color:#04263a;border-color:var(--accent2)}
+  .card .links a{display:inline-block;font-size:11.5px;margin:2px 6px 0 0}
+  /* surah index table */
+  .tablewrap{max-width:1200px;margin:0 auto;padding:0 20px 40px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+  th{color:var(--accent2);position:sticky;top:0;background:var(--panel);cursor:pointer}
+  tr:hover td{background:#1a2634}
+  .badge{font-size:10.5px;padding:2px 8px;border-radius:20px}
+  .mec{background:#2a3b1e;color:#b6e388}
+  .med{background:#1e2f3b;color:#88c9e3}
+  /* names grid */
+  .names{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;
+    max-width:1300px;margin:0 auto;padding:0 20px 40px}
+  .name{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:12px;padding:12px;text-align:center}
+  .name .ar{font-size:22px;color:var(--gold);direction:rtl}
+  .name .tr{font-size:13px;font-weight:600;margin-top:4px}
+  .name .en{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .name .no{font-size:10px;color:#6a7f93}
+  @media print{
+    body{background:#fff;color:#111}
+    .toolbar,.filters,.tabs,.disclaimer{display:none!important}
+    .card,.name,.stat{border:1px solid #ccc;background:#fff;break-inside:avoid}
+    .card h3,.stat .num,header h1{color:#111}
+    .card ul{color:#333}.cat{color:#555}
+    a{color:#111;text-decoration:none}
+    header .arabic,.name .ar{color:#000}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="arabic">الْقُرْآنُ الْكَرِيمُ</div>
+  <h1>Quran Thematic Dashboard</h1>
+  <div class="sub">An organized overview of the major categories, themes, and subjects covered in the Holy Quran</div>
+  <div class="disclaimer">
+    ⚠️ <b>Accuracy note:</b> Structural facts (114 surahs, 30 juz, Meccan/Medinan classification) are well established.
+    Figures labeled <i>“traditional/approx.”</i> — such as how many times a word appears — vary by counting method and
+    should be verified against an authenticated Mushaf or <a href="https://quran.com" target="_blank">quran.com</a>.
+    This dashboard is an educational summary, not a source for religious rulings.
+  </div>
+</header>
+
+<section class="stats">
+  <div class="stat"><div class="num">114</div><div class="lbl">Surahs (Chapters)</div></div>
+  <div class="stat"><div class="num">6,236</div><div class="lbl">Ayahs (Verses)*</div></div>
+  <div class="stat"><div class="num">30</div><div class="lbl">Juz (Parts)</div></div>
+  <div class="stat"><div class="num">86</div><div class="lbl">Meccan Surahs</div></div>
+  <div class="stat"><div class="num">28</div><div class="lbl">Medinan Surahs</div></div>
+  <div class="stat"><div class="num">25</div><div class="lbl">Named Prophets</div></div>
+</section>
+
+<div class="tabs" id="tabs">
+  <button data-view="themes" class="active">🗂️ Themes</button>
+  <button data-view="surahs">📜 Surah Index (114)</button>
+  <button data-view="names">🕌 99 Names</button>
+  <button onclick="window.print()">🖨️ Print / PDF</button>
+</div>
+
+<div id="view-themes">
+<div class="toolbar">
+  <input id="search" type="text" placeholder="🔎 Search themes, prophets, topics… (e.g. patience, Musa, angels)" />
+  <select id="translationSel" title="Choose translation">
+    <option value="20">Saheeh International</option>
+    <option value="131">The Clear Quran (Mustafa Khattab)</option>
+    <option value="22">Yusuf Ali</option>
+    <option value="19">Pickthall</option>
+    <option value="84">Dr. Mustafa Khattab (alt)</option>
+  </select>
+  <select id="reciterSel" title="Choose reciter">
+    <option value="7">Mishary Alafasy</option>
+    <option value="3">Abdur-Rahman as-Sudais</option>
+    <option value="5">Saud ash-Shuraim</option>
+    <option value="6">Mahmoud Al-Husary</option>
+    <option value="4">Abu Bakr al-Shatri</option>
+  </select>
+  <button id="preloadBtn" title="Download all translations for offline use">⬇️ Preload offline</button>
+  <select id="repeatSel" title="Repeat each verse (memorization)">
+    <option value="1">Repeat ×1</option>
+    <option value="3">Repeat ×3</option>
+    <option value="5">Repeat ×5</option>
+    <option value="7">Repeat ×7</option>
+    <option value="10">Repeat ×10</option>
+  </select>
+  <button id="clearCacheBtn" title="Clear cached text & audio">🗑️ Clear cache</button>
+</div>
+<div class="filters" id="filters"></div>
+<main class="grid" id="grid"></main>
+</div>
+
+<div id="view-surahs" class="hidden">
+  <div class="toolbar">
+    <input id="surahSearch" type="text" placeholder="🔎 Search surah by name or number…" />
+  </div>
+  <div class="tablewrap">
+    <table id="surahTable">
+      <thead><tr><th>#</th><th>Name</th><th>Meaning</th><th>Type</th><th>Ayahs</th><th>Link</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="view-names" class="hidden">
+  <div class="toolbar">
+    <input id="nameSearch" type="text" placeholder="🔎 Search a name… (e.g. Rahman, Mercy)" />
+  </div>
+  <div class="names" id="namesGrid"></div>
+</div>
+
+<footer>
+  *6,236 is the count in the widely used Hafs/Kufan numbering; other traditions differ slightly.<br/>
+  Built as an educational overview • Verify specifics at quran.com
+</footer>
+
+<div id="playerBar" class="player-hidden">
+  <button id="pbPrev" title="Previous">⏮</button>
+  <button id="pbPlay" title="Play/Pause">⏸</button>
+  <button id="pbNext" title="Next">⏭</button>
+  <div class="pb-info">
+    <div class="pb-ref" id="pbRef">—</div>
+    <div class="pb-sub" id="pbSub">Not playing</div>
+  </div>
+  <div class="pb-rep" id="pbRep"></div>
+  <button id="pbClose" title="Close">✕</button>
+</div>
+
+<script>
+const cards = [
+  {cat:"Core Beliefs", icon:"☝️", title:"Tawhid — Oneness of God",
+   items:["<b>Allah</b> as the one Creator, Sustainer, and Judge","The 99 Beautiful Names (Asma ul-Husna)","Rejection of shirk (associating partners)","Surah Al-Ikhlas (112) as its essence"],
+   note:"Central theme woven through the entire Quran."},
+  {cat:"Core Beliefs", icon:"📖", title:"Revelation & Scriptures",
+   items:["The Quran as final revelation","Earlier books: <b>Tawrat, Zabur, Injil, Suhuf</b>","Role of revelation as guidance (huda)","Preservation of the divine message"]},
+  {cat:"Core Beliefs", icon:"👼", title:"Angels (Mala'ikah)",
+   items:["<b>Jibril</b> (Gabriel) — bearer of revelation","<b>Mika'il, Israfil, Malak al-Mawt</b>","Recording angels (Kiraman Katibin)","Angels' obedience and roles"]},
+  {cat:"Core Beliefs", icon:"⚖️", title:"The Afterlife (Akhirah)",
+   items:["Death, the grave (Barzakh)","Day of Judgment (Yawm al-Qiyamah)","The Scale (Mizan), the Bridge (Sirat)","<b>Jannah</b> (Paradise) & <b>Jahannam</b> (Hellfire)"],
+   note:"Described vividly across many surahs (e.g., 56, 75, 99)."},
+  {cat:"Core Beliefs", icon:"🌙", title:"Qadar — Divine Decree",
+   items:["God's knowledge and will over all things","Balance of free will and destiny","Trust (tawakkul) in God's plan"]},
+
+  {cat:"Prophets", icon:"🕊️", title:"Adam & Early Humanity",
+   items:["<b>Adam</b> — first human & prophet","Creation, the garden, and descent to earth","Cain & Abel (Habil & Qabil)","Iblis's refusal to prostrate"]},
+  {cat:"Prophets", icon:"🚢", title:"Nuh (Noah)",
+   items:["Centuries of calling his people","The Ark and the Great Flood","Surah Nuh (71)"]},
+  {cat:"Prophets", icon:"🔥", title:"Ibrahim (Abraham)",
+   items:["Breaking the idols; the fire made cool","Building the Ka'bah with <b>Isma'il</b>","The vision of sacrifice","Called <i>Khalilullah</i> (Friend of God)"],
+   note:"Father of prophets; model of pure monotheism (hanif)."},
+  {cat:"Prophets", icon:"⭐", title:"Yusuf (Joseph)",
+   items:["The dream and his brothers' betrayal","Egypt, Al-Aziz, and imprisonment","Rise to power & family reunion","Surah Yusuf (12) — 'the best of stories'"]},
+  {cat:"Prophets", icon:"✋", title:"Musa (Moses)",
+   items:["Most-mentioned prophet by name","Confronting <b>Fir'awn</b> (Pharaoh)","Parting of the sea; the Tawrat","Mount Sinai and the golden calf"],
+   note:"His story spans many surahs (e.g., 20, 28)."},
+  {cat:"Prophets", icon:"🎶", title:"Dawud & Sulayman",
+   items:["<b>Dawud</b> (David) — the Zabur, mountains praising","<b>Sulayman</b> (Solomon) — speech of birds/jinn","The Queen of Sheba (Bilqis)","Justice and God-given kingdoms"]},
+  {cat:"Prophets", icon:"💫", title:"'Isa (Jesus) & Maryam",
+   items:["Miraculous birth to <b>Maryam</b>","Speaking from the cradle; the Injil","Miracles by God's permission","Surah Maryam (19); a revered prophet, not divine"]},
+  {cat:"Prophets", icon:"🌟", title:"Muhammad ﷺ",
+   items:["The final Messenger (Khatam an-Nabiyyin)","Recipient of the Quran","Al-Isra & Al-Mi'raj (Night Journey)","Mercy to the worlds (Rahmatan lil-'Alamin)"]},
+  {cat:"Prophets", icon:"🐋", title:"Other Prophets",
+   items:["<b>Yunus</b> (Jonah) & the whale","<b>Ayyub</b> (Job) & patience in trial","<b>Hud, Salih, Shu'ayb, Lut</b>","<b>Idris, Zakariyya, Yahya, Ilyas, Al-Yasa, Dhul-Kifl</b>"]},
+
+  {cat:"Worship", icon:"🕌", title:"Five Pillars",
+   items:["<b>Shahada</b> — testimony of faith","<b>Salah</b> — prayer","<b>Zakah</b> — purifying charity","<b>Sawm</b> — fasting in Ramadan","<b>Hajj</b> — pilgrimage to Makkah"]},
+  {cat:"Worship", icon:"🌅", title:"Ramadan & the Quran",
+   items:["Revelation began in Ramadan","<b>Laylat al-Qadr</b> — Night of Decree (Surah 97)","Fasting prescribed (2:183)","Spiritual discipline and taqwa"]},
+  {cat:"Worship", icon:"🤲", title:"Dua & Remembrance",
+   items:["Supplication and reliance on God","Dhikr — remembrance of Allah","Tawbah — repentance & return","Reliance (tawakkul) and hope"]},
+
+  {cat:"Values & Ethics", icon:"🌿", title:"Patience & Gratitude",
+   items:["<b>Sabr</b> — steadfast patience","<b>Shukr</b> — gratitude for blessings","Trials as tests of faith (2:155)","“With hardship comes ease” (94:5-6)"]},
+  {cat:"Values & Ethics", icon:"🤝", title:"Justice & Honesty",
+   items:["Standing firm for justice (4:135)","Fulfilling trusts and contracts","Honesty in trade and testimony","Fairness even against oneself"]},
+  {cat:"Values & Ethics", icon:"❤️", title:"Compassion & Charity",
+   items:["Kindness to parents (17:23)","Care for orphans, the poor, travelers","Generosity (sadaqah) & feeding others","Forgiveness and controlling anger"]},
+  {cat:"Values & Ethics", icon:"🚫", title:"Prohibitions & Sins",
+   items:["Shirk, murder, theft, oppression","Interest (riba), gambling, intoxicants","Backbiting, slander, arrogance","Injustice and breaking oaths"]},
+
+  {cat:"Law & Society", icon:"📜", title:"Family & Personal Law",
+   items:["Marriage, kindness between spouses","Inheritance shares (Surah An-Nisa, 4)","Rights of women and children","Divorce guidelines (Surah At-Talaq, 65)"]},
+  {cat:"Law & Society", icon:"🍽️", title:"Lawful & Unlawful (Halal/Haram)",
+   items:["Permitted and forbidden foods","Prohibition of intoxicants & gambling","Ethical earning; ban on riba","Cleanliness and purity (taharah)"]},
+  {cat:"Law & Society", icon:"🏛️", title:"Governance & Community",
+   items:["Consultation (shura)","Fulfilling covenants","Rules of just warfare & peace","Care for the vulnerable in society"]},
+
+  {cat:"Signs in Creation", icon:"🌌", title:"Cosmos & Nature",
+   items:["Heavens, earth, sun, moon, stars","Alternation of night and day","Mountains, seas, rivers, rain","Creation as 'signs' (ayat) for reflection"]},
+  {cat:"Signs in Creation", icon:"🧬", title:"Human & Life Origins",
+   items:["Stages of human creation (23:12-14)","Life from water (21:30)","Diversity of peoples and tongues (30:22)","Purpose of creation & accountability"]},
+  {cat:"Signs in Creation", icon:"🐝", title:"Animals & Provision",
+   items:["Cattle, bees (Surah An-Nahl, 16), ants, birds","Sustenance (rizq) from God","Balance and order in nature","Gratitude for provision"]},
+
+  {cat:"Stories & Parables", icon:"🕳️", title:"People of the Cave",
+   items:["Ashab al-Kahf — youths of faith","Miraculous long sleep","Surah Al-Kahf (18)"]},
+  {cat:"Stories & Parables", icon:"🐘", title:"Nations of the Past",
+   items:["<b>'Ad, Thamud, Madyan</b>","People of Pharaoh; People of Lut","Companions of the Elephant (Surah 105)","Lessons from their rise and fall"]},
+  {cat:"Stories & Parables", icon:"🌳", title:"Parables (Amthal)",
+   items:["Light upon light (Ayat an-Nur, 24:35)","The good word as a good tree (14:24)","Spending likened to a grain (2:261)","Worldly life as fleeting greenery"]},
+
+  {cat:"Key Surahs", icon:"🔑", title:"Landmark Chapters",
+   items:["<b>Al-Fatihah (1)</b> — the Opening","<b>Al-Baqarah (2)</b> — longest surah","<b>Ayat al-Kursi (2:255)</b> — greatest verse","<b>Yasin (36)</b>, <b>Ar-Rahman (55)</b>, <b>Al-Mulk (67)</b>"]},
+  {cat:"Key Surahs", icon:"🛡️", title:"Protection & Refuge",
+   items:["<b>Al-Ikhlas (112)</b> — sincerity","<b>Al-Falaq (113)</b> & <b>An-Nas (114)</b> — the Mu'awwidhatayn","The last two verses of Al-Baqarah","Seeking refuge in God (isti'adhah)"]},
+];
+
+const grid = document.getElementById('grid');
+const filtersEl = document.getElementById('filters');
+const search = document.getElementById('search');
+
+/* Curated ayahs per category card (reference + short description).
+   References use Hafs numbering; each links to quran.com for the exact text. */
+const ayahMap = {
+  "Tawhid — Oneness of God":[["112:1-4","Say: He is Allah, the One"],["2:255","Ayat al-Kursi — no god but He"],["59:22-24","He is Allah, the Names of Beauty"],["16:36","Every nation sent a messenger: worship Allah"],["3:18","Allah witnesses there is no god but He"],["21:22","Were there gods besides Allah, ruin would follow"],["47:19","Know that there is no deity except Allah"],["2:163","Your God is One God, the Most Merciful"]],
+  "Revelation & Scriptures":[["2:2","This is the Book, no doubt, guidance"],["3:3","He sent down the Tawrat and Injil"],["15:9","We revealed the Reminder and will guard it"],["4:136","Believe in Allah, His books and messengers"],["2:285","The Messenger believes in what was revealed"],["17:106","A Quran We revealed in stages"],["42:52","We revealed to you a Spirit by Our command"],["85:21-22","A Glorious Quran in a Preserved Tablet"]],
+  "Angels (Mala'ikah)":[["2:98","Whoever is an enemy to Jibril and Mika'il"],["66:6","Angels stern, who do not disobey"],["82:10-12","Guardians recording your deeds"],["35:1","Angels with two, three, four wings"],["2:285","Believers believe in Allah and His angels"],["13:11","Successive angels before and behind him"],["50:17-18","Two receivers record every word"],["79:1-5","Those who extract, those who arrange"]],
+  "The Afterlife (Akhirah)":[["99:6-8","People will come forth to be shown their deeds"],["75:1-4","I swear by the Day of Resurrection"],["101:6-11","The one whose scales are heavy / light"],["56:1-12","The Event — the near ones in Paradise"],["36:51-54","The trumpet blown; none wronged"],["23:99-100","A barrier (Barzakh) until resurrection"],["3:185","Every soul will taste death"],["50:20-22","The trumpet; your sight is sharp today"]],
+  "Qadar — Divine Decree":[["57:22","No misfortune except it is in a Book"],["54:49","Everything We created with measure"],["9:51","Nothing befalls us but what Allah decreed"],["64:11","No calamity strikes except by Allah's leave"],["87:2-3","He created and proportioned, destined and guided"],["25:2","He created everything and determined it"],["3:145","No soul dies except by Allah's leave, at a set term"]],
+  "Adam & Early Humanity":[["2:30-34","I will place a vicegerent on earth"],["7:19-25","Adam and the forbidden tree"],["5:27-31","The two sons of Adam (Habil & Qabil)"],["15:28-33","Iblis refused to prostrate"],["20:115-123","Adam forgot; then his Lord chose him"],["7:11-18","Iblis's arrogance and vow"],["3:59","The likeness of 'Isa is as that of Adam"]],
+  "Nuh (Noah)":[["71:1-28","Surah Nuh — his call to his people"],["11:36-48","The Ark and the Flood"],["23:23-30","We sent Nuh to his people"],["54:9-15","The people of Nuh denied; We opened the gates"],["26:105-122","The people of Nuh denied the messengers"],["7:59-64","Nuh warns; the disbelievers drowned"]],
+  "Ibrahim (Abraham)":[["21:51-70","Breaking the idols; the fire made cool"],["2:124-129","Raising the foundations of the Ka'bah"],["37:99-111","The vision of sacrifice"],["4:125","Allah took Ibrahim as a friend (Khalil)"],["6:74-79","Ibrahim reflects on stars, moon, sun"],["19:41-50","Ibrahim and his father"],["16:120-123","Ibrahim was a nation, devoutly obedient"]],
+  "Yusuf (Joseph)":[["12:4","I saw eleven stars, the sun and moon"],["12:23-29","Temptation and his innocence"],["12:54-57","Established in the land of Egypt"],["12:88-92","Reunion and forgiveness of his brothers"],["12:18","The false blood on the shirt"],["12:100-101","His parents raised on the throne"],["12:111","In their stories is a lesson for those of understanding"]],
+  "Musa (Moses)":[["20:9-24","The sacred valley and the staff"],["26:60-68","Parting of the sea; drowning of Pharaoh"],["7:142-145","Forty nights; the Tablets"],["20:83-98","The golden calf of the Samiri"],["28:7-13","Musa returned to his mother"],["28:29-35","The call at the fire; Harun as helper"],["20:65-73","The magicians believe and prostrate"]],
+  "Dawud & Sulayman":[["34:10-11","We gave Dawud grace; mountains echoing"],["21:78-82","Judgment; the wind and diving jinn"],["27:15-44","Sulayman, the ant, and the Queen of Sheba"],["38:30","How excellent a servant — Sulayman"],["38:17-20","Dawud given wisdom and sound judgment"],["27:16","Sulayman taught the speech of birds"],["34:12-13","The wind and the jinn working for Sulayman"]],
+  "'Isa (Jesus) & Maryam":[["19:16-34","The birth; speaking from the cradle"],["3:45-51","Glad tidings of the Messiah"],["5:110","Miracles by Allah's permission"],["4:171","Do not exceed limits; 'Isa is His messenger"],["3:59","The likeness of 'Isa is as Adam"],["19:35","It is not for Allah to take a son"],["61:6","'Isa gives glad tidings of Ahmad"]],
+  "Muhammad ﷺ":[["33:40","Seal of the Prophets"],["17:1","The Night Journey (Al-Isra)"],["21:107","A mercy to the worlds"],["93:1-8","Your Lord has not forsaken you"],["68:4","You are of a great moral character"],["48:29","Muhammad is the Messenger of Allah"],["53:1-18","The star; the Mi'raj vision"]],
+  "Other Prophets":[["21:87-88","Yunus in the darkness; We saved him"],["21:83-84","Ayyub and the removal of his affliction"],["7:65-93","Hud, Salih, Shu'ayb to their peoples"],["19:41-58","Ibrahim, Idris, and other prophets"],["37:139-148","Yunus and the great fish"],["38:41-44","Ayyub — strike with your foot"],["19:56-57","Idris, a man of truth, raised high"]],
+  "Five Pillars":[["3:18","Testimony: no god but He"],["2:43","Establish prayer and give zakah"],["2:183","Fasting is prescribed for you"],["3:97","Pilgrimage to the House for those able"],["4:103","Prayer is decreed at fixed times"],["9:60","The categories of zakah recipients"],["2:196","Complete the Hajj and Umrah for Allah"]],
+  "Ramadan & the Quran":[["2:185","The month of Ramadan — the Quran revealed"],["97:1-5","The Night of Decree (Laylat al-Qadr)"],["2:187","Eat and drink until dawn, then complete the fast"],["44:3-4","A blessed night when matters are decided"],["2:184","A limited number of days"]],
+  "Dua & Remembrance":[["2:186","I am near; I answer the caller"],["13:28","In the remembrance of Allah hearts find rest"],["40:60","Call upon Me, I will respond"],["7:55","Call upon your Lord humbly"],["2:201","Our Lord, give us good in this world and the next"],["3:8","Our Lord, let not our hearts deviate"],["20:114","My Lord, increase me in knowledge"]],
+  "Patience & Gratitude":[["2:153","Seek help through patience and prayer"],["2:155-157","We will test you… glad tidings to the patient"],["14:7","If you are grateful, I will increase you"],["94:5-6","With hardship comes ease"],["3:200","Be patient and persevere"],["39:10","The patient will be given reward without measure"],["16:18","If you count Allah's blessings, you cannot enumerate them"]],
+  "Justice & Honesty":[["4:135","Be maintainers of justice, witnesses for Allah"],["5:8","Let not hatred lead you to injustice"],["16:90","Allah commands justice and good conduct"],["55:9","Weigh with justice, do not skimp"],["4:58","Render trusts; judge with justice"],["2:283","Do not conceal testimony"],["6:152","Give full measure and weight in justice"]],
+  "Compassion & Charity":[["17:23-24","Kindness to parents"],["2:261","Charity likened to a grain of seven ears"],["2:177","Righteousness: giving wealth to kin, orphans"],["3:134","Those who restrain anger and pardon people"],["90:12-16","The steep path: freeing a slave, feeding"],["2:263","A kind word is better than charity followed by injury"],["76:8-9","They feed the poor, orphan, and captive"]],
+  "Prohibitions & Sins":[["17:32","Do not approach unlawful intimacy"],["5:90","Intoxicants and gambling are defilement"],["2:275","Allah has permitted trade and forbidden riba"],["49:12","Avoid suspicion and backbiting"],["17:33","Do not kill the soul Allah forbade"],["17:31","Do not kill your children out of poverty"],["24:19","Those who love indecency to spread"]],
+  "Family & Personal Law":[["4:11-12","Inheritance shares"],["30:21","Spouses as tranquility and mercy"],["4:19","Live with them in kindness"],["65:1-2","Guidelines of divorce"],["4:3","Marriage and fairness among wives"],["2:233","Nursing and mutual consultation"],["4:7","For men and women a share of inheritance"]],
+  "Lawful & Unlawful (Halal/Haram)":[["2:168","Eat of what is lawful and good"],["5:3","Forbidden to you are… (foods)"],["2:219","They ask about wine and gambling"],["5:88","Eat of the lawful, good things"],["6:145","Say: I do not find in what is revealed anything forbidden except…"],["16:114-116","Do not label falsely 'this is lawful, this is forbidden'"],["5:5","The food of the People of the Book is lawful"]],
+  "Governance & Community":[["42:38","Their affairs by consultation (shura)"],["4:58","Render trusts; judge with justice"],["8:61","If they incline to peace, incline to it"],["49:9-10","Reconcile between believers"],["3:159","Consult them in the matter"],["4:59","Obey Allah, the Messenger, and those in authority"],["49:13","We made you nations and tribes to know one another"]],
+  "Cosmos & Nature":[["21:30","The heavens and earth were joined; life from water"],["36:38-40","The sun, moon, and their orbits"],["2:164","In the creation of heavens and earth are signs"],["67:3-4","No flaw in the Merciful's creation"],["51:47","We built the heaven with power and are expanding it"],["31:29","He merges night into day; subjected sun and moon"],["55:5-7","The sun and moon by calculation; raised the sky"]],
+  "Human & Life Origins":[["23:12-14","Stages of human creation"],["21:30","We made every living thing from water"],["30:22","Diversity of tongues and colors as signs"],["51:56","I created jinn and mankind to worship Me"],["96:1-5","Read! Created man from a clinging clot"],["76:1-3","Man created from a sperm-drop, then guided"],["32:7-9","He began the creation of man from clay"]],
+  "Animals & Provision":[["16:66-69","Lessons in cattle and the bee"],["27:18-19","The valley of the ants"],["6:38","No creature but forms communities like you"],["11:6","No creature but its provision is upon Allah"],["24:45","Allah created every animal from water"],["16:5-8","Cattle for warmth and benefit; horses to ride"],["67:19","Do they not see the birds above them?"]],
+  "People of the Cave":[["18:9-26","The story of the Companions of the Cave"],["18:13","Youths who believed in their Lord"],["18:18","You would think them awake while asleep"],["18:22","Disputes over their number — Allah knows best"]],
+  "Nations of the Past":[["7:65-72","'Ad and the prophet Hud"],["7:73-79","Thamud and the she-camel"],["105:1-5","The Companions of the Elephant"],["11:82-83","The overturning of Lut's people"],["89:6-14","'Ad of Iram, Thamud, and Pharaoh"],["69:4-8","Thamud and 'Ad destroyed"],["54:18-21","'Ad denied; a furious wind"]],
+  "Parables (Amthal)":[["24:35","Ayat an-Nur — light upon light"],["14:24-25","A good word like a good tree"],["2:261","Spending likened to a fruitful grain"],["18:45","Worldly life like water then dry stubble"],["2:17-20","Their likeness is one who kindled a fire"],["29:41","Those who take protectors like a spider's web"],["59:21","Had We sent this Quran on a mountain"]],
+  "Landmark Chapters":[["1:1-7","Al-Fatihah — the Opening"],["2:255","Ayat al-Kursi — the greatest verse"],["36:1-12","Ya-Sin — the heart of the Quran"],["55:1-13","Ar-Rahman — which favors will you deny"],["67:1-2","Al-Mulk — blessed is He who holds dominion"],["18:1-10","Al-Kahf — the opening verses"],["2:285-286","The last two verses of Al-Baqarah"]],
+  "Protection & Refuge":[["112:1-4","Al-Ikhlas — sincerity"],["113:1-5","Al-Falaq — the daybreak"],["114:1-6","An-Nas — mankind"],["2:285-286","The last two verses of Al-Baqarah"],["2:255","Ayat al-Kursi — protection"],["23:97-98","My Lord, I seek refuge in You"],["41:36","If Satan tempts you, seek refuge in Allah"]]
+};
+
+const categories = ["All", ...Array.from(new Set(cards.map(c=>c.cat)))];
+let activeCat = "All";
+
+function render(){
+  const q = search.value.trim().toLowerCase();
+  grid.innerHTML = "";
+  cards.forEach(c=>{
+    const hay = (c.title+" "+c.cat+" "+c.items.join(" ")+" "+(c.note||"")).toLowerCase();
+    const matchCat = activeCat==="All" || c.cat===activeCat;
+    const matchQ = !q || hay.includes(q);
+    if(matchCat && matchQ){
+      const el = document.createElement('div');
+      el.className='card';
+      // auto-detect surah numbers in parentheses e.g. (36) or (2:255) for quran.com links
+      const refs = new Set();
+      (c.title+" "+c.items.join(" ")).replace(/\((\d{1,3})(?::\d+)?\)/g,(m,n)=>{if(+n>=1&&+n<=114)refs.add(+n);return m;});
+      const linkHtml = refs.size
+        ? `<div class="links">📖 ${[...refs].sort((a,b)=>a-b).map(n=>`<a href="https://quran.com/${n}" target="_blank">Surah ${n}</a>`).join("")}</div>`
+        : "";
+      // associated ayahs (expandable)
+      const ay = ayahMap[c.title] || [];
+      const ayahHtml = ay.length ? `
+        <button class="ayah-toggle">📿 Show ${ay.length} associated ayahs ▾</button>
+        <div class="ayah-list hidden">
+          <button class="playall-btn">▶ Play all (${ay.length})</button>
+          ${ay.map(a=>{
+            const first = a[0].split("-")[0]; // e.g. 2:155 from 2:155-157
+            const parts = first.split(":");
+            const url = "https://quran.com/"+parts[0]+(parts[1]?"/"+parts[1]:"");
+            return `<div class="ayah" data-key="${first}">
+              <div class="ayah-head">
+                <span class="ref">${a[0]}</span>
+                <span class="desc">${a[1]}</span>
+                <span class="ayah-actions">
+                  <button class="audio-btn" data-key="${first}" title="Play recitation">▶</button>
+                  <button class="copy-btn" data-ref="${a[0]}" title="Copy reference">⧉</button>
+                  <a href="${url}" target="_blank" title="Read on quran.com">↗</a>
+                </span>
+              </div>
+              <div class="ayah-trans">…</div>
+            </div>`;
+          }).join("")}
+        </div>` : "";
+      el.innerHTML = `
+        <div class="cat">${c.cat}</div>
+        <h3><span class="icon">${c.icon}</span>${c.title}</h3>
+        <ul>${c.items.map(i=>`<li>${i}</li>`).join("")}</ul>
+        ${linkHtml}
+        ${ayahHtml}
+        ${c.note?`<div class="note">💡 ${c.note}</div>`:""}`;
+      const tgl = el.querySelector('.ayah-toggle');
+      if(tgl){
+        tgl.addEventListener('click',()=>{
+          const list = el.querySelector('.ayah-list');
+          const open = list.classList.toggle('hidden');
+          tgl.innerHTML = `📿 ${open?'Show':'Hide'} ${ay.length} associated ayahs ${open?'▾':'▴'}`;
+          el.classList.toggle('expanded', !open);
+          if(!open && !list.dataset.loaded){ loadTranslations(list); list.dataset.loaded="1"; }
+        });
+        // copy-reference buttons
+        el.querySelectorAll('.copy-btn').forEach(btn=>{
+          btn.addEventListener('click',e=>{
+            e.stopPropagation();
+            navigator.clipboard.writeText("Quran "+btn.dataset.ref).then(()=>{
+              const old=btn.textContent; btn.textContent="✓"; btn.classList.add('copied');
+              setTimeout(()=>{btn.textContent=old;btn.classList.remove('copied');},1200);
+            });
+          });
+        });
+        // audio recitation buttons
+        el.querySelectorAll('.audio-btn').forEach(btn=>{
+          btn.addEventListener('click',e=>{
+            e.stopPropagation();
+            playAyah(btn.dataset.key, btn);
+          });
+        });
+        // play-all button
+        const pa = el.querySelector('.playall-btn');
+        if(pa){
+          pa.addEventListener('click',e=>{
+            e.stopPropagation();
+            playAll(el, pa);
+          });
+        }
+      }
+      grid.appendChild(el);
+    }
+  });
+  if(!grid.children.length){
+    grid.innerHTML = `<div style="color:#9fb2c5;padding:20px">No matches. Try another search term.</div>`;
+  }
+}
+
+categories.forEach(cat=>{
+  const b=document.createElement('button');
+  b.textContent=cat; if(cat==="All") b.classList.add('active');
+  b.onclick=()=>{activeCat=cat;[...filtersEl.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');render();};
+  filtersEl.appendChild(b);
+});
+search.addEventListener('input', render);
+render();
+
+/* Lazily fetch translations from quran.com API with offline caching in localStorage.
+   The selected translation id comes from the dropdown. Fails gracefully offline. */
+const CACHE_KEY = "quranCacheV1";
+let cache = {};
+try{ cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}"); }catch(e){ cache = {}; }
+function saveCache(){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); }catch(e){} }
+function currentTr(){ return document.getElementById('translationSel').value; }
+
+async function fetchVerse(key, trId){
+  const cacheId = trId+"|"+key;
+  if(cache[cacheId]) return cache[cacheId];
+  const res = await fetch(`https://api.quran.com/api/v4/verses/by_key/${key}?translations=${trId}&fields=text_uthmani`);
+  if(!res.ok) throw new Error(res.status);
+  const data = await res.json();
+  const v = data.verse || {};
+  const tr = (v.translations && v.translations[0] && v.translations[0].text) || "";
+  const ar = v.text_uthmani || "";
+  const clean = tr.replace(/<sup[^>]*>.*?<\/sup>/g,"").replace(/<[^>]+>/g,"");
+  const obj = { ar, en: clean };
+  cache[cacheId] = obj; saveCache();
+  return obj;
+}
+
+async function loadTranslations(list){
+  const trId = currentTr();
+  const rows = list.querySelectorAll('.ayah');
+  for(const row of rows){
+    const key = row.dataset.key;
+    const cell = row.querySelector('.ayah-trans');
+    try{
+      const {ar,en} = await fetchVerse(key, trId);
+      cell.innerHTML = (ar?`<div class="ar-line">${ar}</div>`:"") + `<div class="en-line">“${en}”</div>`;
+    }catch(err){
+      cell.innerHTML = `<span class="trans-err">Translation unavailable offline — open on quran.com ↗</span>`;
+    }
+  }
+}
+
+/* When the translation dropdown changes, refresh any already-open lists. */
+document.getElementById('translationSel').addEventListener('change',()=>{
+  document.querySelectorAll('.ayah-list:not(.hidden)').forEach(list=>{ delete list.dataset.loaded; loadTranslations(list); list.dataset.loaded="1"; });
+});
+
+/* Audio recitation via quran.com verse audio. Reciter chosen from dropdown.
+   Audio URLs are cached in localStorage; audio blobs cached via the Cache API for offline. */
+function currentReciter(){ return document.getElementById('reciterSel').value; }
+const AUDIO_URL_KEY = "quranAudioUrlsV1";
+let audioUrlCache = {};
+try{ audioUrlCache = JSON.parse(localStorage.getItem(AUDIO_URL_KEY) || "{}"); }catch(e){ audioUrlCache = {}; }
+function saveAudioUrls(){ try{ localStorage.setItem(AUDIO_URL_KEY, JSON.stringify(audioUrlCache)); }catch(e){} }
+
+async function getAudioUrl(key, reciter){
+  const id = reciter+"|"+key;
+  if(audioUrlCache[id]) return audioUrlCache[id];
+  const res = await fetch(`https://api.quran.com/api/v4/recitations/${reciter}/by_ayah/${key}`);
+  if(!res.ok) throw new Error(res.status);
+  const data = await res.json();
+  const file = data.audio_files && data.audio_files[0] && data.audio_files[0].url;
+  if(!file) throw new Error("no audio");
+  const src = file.startsWith("http") ? file : "https://verses.quran.com/"+file;
+  audioUrlCache[id]=src; saveAudioUrls();
+  return src;
+}
+
+/* Cache the actual audio bytes for offline playback using the Cache API. */
+async function getPlayableSrc(url){
+  try{
+    if('caches' in window){
+      const c = await caches.open('quran-audio-v1');
+      let resp = await c.match(url);
+      if(!resp){ await c.add(url); resp = await c.match(url); }
+      if(resp){ const blob = await resp.blob(); return URL.createObjectURL(blob); }
+    }
+  }catch(e){ /* fall back to direct URL */ }
+  return url;
+}
+
+/* ===== Unified queue-based audio engine driving the mini player bar ===== */
+let currentAudio=null, currentBtn=null;
+let queue=[], qIndex=0, repLeft=1, playing=false;
+const bar=document.getElementById('playerBar');
+const pbRef=document.getElementById('pbRef'), pbSub=document.getElementById('pbSub'),
+      pbRep=document.getElementById('pbRep'), pbPlay=document.getElementById('pbPlay');
+function repeatN(){ return parseInt(document.getElementById('repeatSel').value)||1; }
+function showBar(){ bar.classList.remove('player-hidden'); }
+function resetInlineBtn(){ if(currentBtn){ currentBtn.textContent = currentBtn.classList.contains('playall-btn')?`▶ Play all`:"▶"; currentBtn=null; } }
+function stopAudio(){ if(currentAudio){ currentAudio.pause(); currentAudio.src=""; currentAudio=null; } }
+function stopAll(){ playing=false; stopAudio(); resetInlineBtn(); queue=[]; document.querySelectorAll('.playall-btn').forEach(b=>{b.dataset.playing="0";b.textContent=`▶ Play all (${b.closest('.card').querySelectorAll('.ayah').length})`;}); pbPlay.textContent="▶"; pbSub.textContent="Stopped"; }
+
+async function playIndex(i){
+  if(i<0||i>=queue.length){ stopAll(); pbSub.textContent="Finished"; return; }
+  qIndex=i; const item=queue[i];
+  showBar(); pbRef.textContent=item.ref; pbSub.textContent=item.label||("Verse "+item.ref);
+  pbRep.textContent = repeatN()>1 ? `↻ ${repeatN()-repLeft+1}/${repeatN()}` : "";
+  pbPlay.textContent="⏸"; playing=true;
+  try{
+    const url=await getAudioUrl(item.key, currentReciter());
+    const src=await getPlayableSrc(url);
+    stopAudio();
+    currentAudio=new Audio(src);
+    currentAudio.onended=()=>{
+      if(!playing) return;
+      if(repLeft>1){ repLeft--; playIndex(i); }        // repeat same verse
+      else { repLeft=repeatN(); playIndex(i+1); }       // advance
+    };
+    currentAudio.onerror=()=>{ if(playing){ repLeft=repeatN(); playIndex(i+1); } };
+    await currentAudio.play();
+  }catch(e){ if(playing){ repLeft=repeatN(); playIndex(i+1); } }
+}
+function startQueue(items,startAt=0){ queue=items; repLeft=repeatN(); playIndex(startAt); }
+
+/* Single ayah → build a 1-item queue (still uses repeat setting). */
+async function playAyah(key, btn){
+  const isSame = currentBtn===btn && playing;
+  if(isSame){ stopAll(); return; }
+  resetInlineBtn(); currentBtn=btn; btn.textContent="⏸";
+  const row=btn.closest('.ayah'); const ref=row.querySelector('.ref').textContent;
+  const label=row.querySelector('.desc').textContent;
+  startQueue([{key,ref,label}],0);
+}
+
+/* Play all ayahs in a category as a queue. */
+function playAll(card, paBtn){
+  if(paBtn.dataset.playing==="1"){ stopAll(); return; }
+  document.querySelectorAll('.playall-btn').forEach(b=>b.dataset.playing="0");
+  paBtn.dataset.playing="1"; paBtn.textContent="⏸ Stop";
+  resetInlineBtn(); currentBtn=paBtn;
+  const items=[...card.querySelectorAll('.ayah')].map(r=>({
+    key:r.dataset.key, ref:r.querySelector('.ref').textContent, label:r.querySelector('.desc').textContent
+  }));
+  startQueue(items,0);
+}
+
+/* Player-bar controls */
+pbPlay.addEventListener('click',()=>{
+  if(!currentAudio){ if(queue.length) playIndex(qIndex); return; }
+  if(currentAudio.paused){ currentAudio.play(); playing=true; pbPlay.textContent="⏸"; }
+  else { currentAudio.pause(); playing=false; pbPlay.textContent="▶"; }
+});
+document.getElementById('pbNext').addEventListener('click',()=>{ if(queue.length){ repLeft=repeatN(); playIndex(qIndex+1); } });
+document.getElementById('pbPrev').addEventListener('click',()=>{ if(queue.length){ repLeft=repeatN(); playIndex(Math.max(0,qIndex-1)); } });
+document.getElementById('pbClose').addEventListener('click',()=>{ stopAll(); bar.classList.add('player-hidden'); });
+
+/* Reciter change → restart current verse with new voice. */
+document.getElementById('reciterSel').addEventListener('change',()=>{ if(playing&&queue.length){ repLeft=repeatN(); playIndex(qIndex); } });
+
+/* Clear cache button */
+document.getElementById('clearCacheBtn').addEventListener('click',async()=>{
+  const btn=document.getElementById('clearCacheBtn');
+  stopAll();
+  cache={}; audioUrlCache={};
+  try{ localStorage.removeItem(CACHE_KEY); localStorage.removeItem(AUDIO_URL_KEY); }catch(e){}
+  try{ if('caches' in window) await caches.delete('quran-audio-v1'); }catch(e){}
+  document.querySelectorAll('.ayah-list').forEach(l=>delete l.dataset.loaded);
+  btn.textContent="✓ Cleared"; setTimeout(()=>btn.textContent="🗑️ Clear cache",2000);
+});
+
+/* Preload all referenced ayahs (translation text + audio) for offline use. */
+document.getElementById('preloadBtn').addEventListener('click',async()=>{
+  const btn=document.getElementById('preloadBtn');
+  const trId=currentTr();
+  const reciter=currentReciter();
+  const keys=new Set();
+  Object.values(ayahMap).forEach(arr=>arr.forEach(a=>keys.add(a[0].split("-")[0])));
+  const all=[...keys]; let done=0, failed=0;
+  btn.disabled=true;
+  for(const key of all){
+    try{
+      await fetchVerse(key, trId);            // translation text
+      const url=await getAudioUrl(key, reciter); // audio url
+      await getPlayableSrc(url);              // cache audio bytes
+    }catch(e){ failed++; }
+    done++; btn.textContent=`⬇️ ${done}/${all.length}`;
+  }
+  btn.textContent = failed? `✓ Cached (${all.length-failed}/${all.length})` : `✓ Offline ready (${all.length})`;
+  setTimeout(()=>{btn.disabled=false; btn.textContent="⬇️ Preload offline";},4000);
+});
+
+/* ---------- Surah Index (all 114) ---------- */
+const surahs = [
+[1,"Al-Fatihah","The Opening","Meccan",7],[2,"Al-Baqarah","The Cow","Medinan",286],
+[3,"Aal-E-Imran","Family of Imran","Medinan",200],[4,"An-Nisa","The Women","Medinan",176],
+[5,"Al-Ma'idah","The Table Spread","Medinan",120],[6,"Al-An'am","The Cattle","Meccan",165],
+[7,"Al-A'raf","The Heights","Meccan",206],[8,"Al-Anfal","The Spoils of War","Medinan",75],
+[9,"At-Tawbah","The Repentance","Medinan",129],[10,"Yunus","Jonah","Meccan",109],
+[11,"Hud","Hud","Meccan",123],[12,"Yusuf","Joseph","Meccan",111],
+[13,"Ar-Ra'd","The Thunder","Medinan",43],[14,"Ibrahim","Abraham","Meccan",52],
+[15,"Al-Hijr","The Rocky Tract","Meccan",99],[16,"An-Nahl","The Bee","Meccan",128],
+[17,"Al-Isra","The Night Journey","Meccan",111],[18,"Al-Kahf","The Cave","Meccan",110],
+[19,"Maryam","Mary","Meccan",98],[20,"Ta-Ha","Ta-Ha","Meccan",135],
+[21,"Al-Anbiya","The Prophets","Meccan",112],[22,"Al-Hajj","The Pilgrimage","Medinan",78],
+[23,"Al-Mu'minun","The Believers","Meccan",118],[24,"An-Nur","The Light","Medinan",64],
+[25,"Al-Furqan","The Criterion","Meccan",77],[26,"Ash-Shu'ara","The Poets","Meccan",227],
+[27,"An-Naml","The Ant","Meccan",93],[28,"Al-Qasas","The Stories","Meccan",88],
+[29,"Al-Ankabut","The Spider","Meccan",69],[30,"Ar-Rum","The Romans","Meccan",60],
+[31,"Luqman","Luqman","Meccan",34],[32,"As-Sajdah","The Prostration","Meccan",30],
+[33,"Al-Ahzab","The Combined Forces","Medinan",73],[34,"Saba","Sheba","Meccan",54],
+[35,"Fatir","Originator","Meccan",45],[36,"Ya-Sin","Ya-Sin","Meccan",83],
+[37,"As-Saffat","Those Who Set the Ranks","Meccan",182],[38,"Sad","Sad","Meccan",88],
+[39,"Az-Zumar","The Troops","Meccan",75],[40,"Ghafir","The Forgiver","Meccan",85],
+[41,"Fussilat","Explained in Detail","Meccan",54],[42,"Ash-Shura","The Consultation","Meccan",53],
+[43,"Az-Zukhruf","The Ornaments of Gold","Meccan",89],[44,"Ad-Dukhan","The Smoke","Meccan",59],
+[45,"Al-Jathiyah","The Crouching","Meccan",37],[46,"Al-Ahqaf","The Wind-Curved Sandhills","Meccan",35],
+[47,"Muhammad","Muhammad","Medinan",38],[48,"Al-Fath","The Victory","Medinan",29],
+[49,"Al-Hujurat","The Rooms","Medinan",18],[50,"Qaf","Qaf","Meccan",45],
+[51,"Adh-Dhariyat","The Winnowing Winds","Meccan",60],[52,"At-Tur","The Mount","Meccan",49],
+[53,"An-Najm","The Star","Meccan",62],[54,"Al-Qamar","The Moon","Meccan",55],
+[55,"Ar-Rahman","The Beneficent","Medinan",78],[56,"Al-Waqi'ah","The Inevitable","Meccan",96],
+[57,"Al-Hadid","The Iron","Medinan",29],[58,"Al-Mujadila","The Pleading Woman","Medinan",22],
+[59,"Al-Hashr","The Exile","Medinan",24],[60,"Al-Mumtahanah","She That is to be Examined","Medinan",13],
+[61,"As-Saff","The Ranks","Medinan",14],[62,"Al-Jumu'ah","Friday","Medinan",11],
+[63,"Al-Munafiqun","The Hypocrites","Medinan",11],[64,"At-Taghabun","Mutual Disillusion","Medinan",18],
+[65,"At-Talaq","Divorce","Medinan",12],[66,"At-Tahrim","The Prohibition","Medinan",12],
+[67,"Al-Mulk","The Sovereignty","Meccan",30],[68,"Al-Qalam","The Pen","Meccan",52],
+[69,"Al-Haqqah","The Reality","Meccan",52],[70,"Al-Ma'arij","The Ascending Stairways","Meccan",44],
+[71,"Nuh","Noah","Meccan",28],[72,"Al-Jinn","The Jinn","Meccan",28],
+[73,"Al-Muzzammil","The Enshrouded One","Meccan",20],[74,"Al-Muddaththir","The Cloaked One","Meccan",56],
+[75,"Al-Qiyamah","The Resurrection","Meccan",40],[76,"Al-Insan","Man","Medinan",31],
+[77,"Al-Mursalat","The Emissaries","Meccan",50],[78,"An-Naba","The Tidings","Meccan",40],
+[79,"An-Nazi'at","Those Who Drag Forth","Meccan",46],[80,"Abasa","He Frowned","Meccan",42],
+[81,"At-Takwir","The Overthrowing","Meccan",29],[82,"Al-Infitar","The Cleaving","Meccan",19],
+[83,"Al-Mutaffifin","The Defrauding","Meccan",36],[84,"Al-Inshiqaq","The Sundering","Meccan",25],
+[85,"Al-Buruj","The Mansions of the Stars","Meccan",22],[86,"At-Tariq","The Nightcomer","Meccan",17],
+[87,"Al-A'la","The Most High","Meccan",19],[88,"Al-Ghashiyah","The Overwhelming","Meccan",26],
+[89,"Al-Fajr","The Dawn","Meccan",30],[90,"Al-Balad","The City","Meccan",20],
+[91,"Ash-Shams","The Sun","Meccan",15],[92,"Al-Layl","The Night","Meccan",21],
+[93,"Ad-Duha","The Morning Hours","Meccan",11],[94,"Ash-Sharh","The Relief","Meccan",8],
+[95,"At-Tin","The Fig","Meccan",8],[96,"Al-Alaq","The Clot","Meccan",19],
+[97,"Al-Qadr","The Power","Meccan",5],[98,"Al-Bayyinah","The Clear Proof","Medinan",8],
+[99,"Az-Zalzalah","The Earthquake","Medinan",8],[100,"Al-Adiyat","The Courser","Meccan",11],
+[101,"Al-Qari'ah","The Calamity","Meccan",11],[102,"At-Takathur","The Rivalry in Worldly Increase","Meccan",8],
+[103,"Al-Asr","The Declining Day","Meccan",3],[104,"Al-Humazah","The Traducer","Meccan",9],
+[105,"Al-Fil","The Elephant","Meccan",5],[106,"Quraysh","Quraysh","Meccan",4],
+[107,"Al-Ma'un","The Small Kindnesses","Meccan",7],[108,"Al-Kawthar","The Abundance","Meccan",3],
+[109,"Al-Kafirun","The Disbelievers","Meccan",6],[110,"An-Nasr","The Divine Support","Medinan",3],
+[111,"Al-Masad","The Palm Fiber","Meccan",5],[112,"Al-Ikhlas","The Sincerity","Meccan",4],
+[113,"Al-Falaq","The Daybreak","Meccan",5],[114,"An-Nas","Mankind","Meccan",6]
+];
+const surahBody = document.querySelector('#surahTable tbody');
+const surahSearch = document.getElementById('surahSearch');
+function renderSurahs(){
+  const q=(surahSearch.value||"").toLowerCase();
+  surahBody.innerHTML="";
+  surahs.filter(s=>!q||s[1].toLowerCase().includes(q)||s[2].toLowerCase().includes(q)||String(s[0])===q)
+  .forEach(s=>{
+    const badge=s[3]==="Meccan"?'<span class="badge mec">Meccan</span>':'<span class="badge med">Medinan</span>';
+    surahBody.insertAdjacentHTML('beforeend',
+      `<tr><td>${s[0]}</td><td><b>${s[1]}</b></td><td>${s[2]}</td><td>${badge}</td><td>${s[4]}</td>
+       <td><a href="https://quran.com/${s[0]}" target="_blank">Read ↗</a></td></tr>`);
+  });
+}
+surahSearch.addEventListener('input',renderSurahs);
+renderSurahs();
+
+/* ---------- 99 Names of Allah ---------- */
+const names=[
+["ٱلرَّحْمَٰن","Ar-Rahman","The Most Compassionate"],["ٱلرَّحِيم","Ar-Rahim","The Most Merciful"],
+["ٱلْمَلِك","Al-Malik","The King / Sovereign"],["ٱلْقُدُّوس","Al-Quddus","The Most Holy"],
+["ٱلسَّلَام","As-Salam","The Source of Peace"],["ٱلْمُؤْمِن","Al-Mu'min","The Granter of Security"],
+["ٱلْمُهَيْمِن","Al-Muhaymin","The Guardian"],["ٱلْعَزِيز","Al-Aziz","The Almighty"],
+["ٱلْجَبَّار","Al-Jabbar","The Compeller"],["ٱلْمُتَكَبِّر","Al-Mutakabbir","The Supreme"],
+["ٱلْخَالِق","Al-Khaliq","The Creator"],["ٱلْبَارِئ","Al-Bari","The Evolver"],
+["ٱلْمُصَوِّر","Al-Musawwir","The Fashioner"],["ٱلْغَفَّار","Al-Ghaffar","The Constant Forgiver"],
+["ٱلْقَهَّار","Al-Qahhar","The Subduer"],["ٱلْوَهَّاب","Al-Wahhab","The Bestower"],
+["ٱلرَّزَّاق","Ar-Razzaq","The Provider"],["ٱلْفَتَّاح","Al-Fattah","The Opener"],
+["ٱلْعَلِيم","Al-Alim","The All-Knowing"],["ٱلْقَابِض","Al-Qabid","The Withholder"],
+["ٱلْبَاسِط","Al-Basit","The Extender"],["ٱلْخَافِض","Al-Khafid","The Reducer"],
+["ٱلرَّافِع","Ar-Rafi","The Exalter"],["ٱلْمُعِز","Al-Mu'izz","The Honorer"],
+["ٱلْمُذِل","Al-Mudhill","The Dishonorer"],["ٱلسَّمِيع","As-Sami","The All-Hearing"],
+["ٱلْبَصِير","Al-Basir","The All-Seeing"],["ٱلْحَكَم","Al-Hakam","The Judge"],
+["ٱلْعَدْل","Al-Adl","The Utterly Just"],["ٱللَّطِيف","Al-Latif","The Subtle One"],
+["ٱلْخَبِير","Al-Khabir","The All-Aware"],["ٱلْحَلِيم","Al-Halim","The Forbearing"],
+["ٱلْعَظِيم","Al-Azim","The Magnificent"],["ٱلْغَفُور","Al-Ghafur","The Great Forgiver"],
+["ٱلشَّكُور","Ash-Shakur","The Appreciative"],["ٱلْعَلِي","Al-Ali","The Most High"],
+["ٱلْكَبِير","Al-Kabir","The Most Great"],["ٱلْحَفِيظ","Al-Hafiz","The Preserver"],
+["ٱلْمُقِيت","Al-Muqit","The Sustainer"],["ٱلْحَسِيب","Al-Hasib","The Reckoner"],
+["ٱلْجَلِيل","Al-Jalil","The Majestic"],["ٱلْكَرِيم","Al-Karim","The Most Generous"],
+["ٱلرَّقِيب","Ar-Raqib","The Watchful"],["ٱلْمُجِيب","Al-Mujib","The Responsive"],
+["ٱلْوَاسِع","Al-Wasi","The All-Encompassing"],["ٱلْحَكِيم","Al-Hakim","The All-Wise"],
+["ٱلْوَدُود","Al-Wadud","The Most Loving"],["ٱلْمَجِيد","Al-Majid","The Glorious"],
+["ٱلْبَاعِث","Al-Ba'ith","The Resurrector"],["ٱلشَّهِيد","Ash-Shahid","The Witness"],
+["ٱلْحَق","Al-Haqq","The Absolute Truth"],["ٱلْوَكِيل","Al-Wakil","The Trustee"],
+["ٱلْقَوِي","Al-Qawiyy","The All-Strong"],["ٱلْمَتِين","Al-Matin","The Firm"],
+["ٱلْوَلِي","Al-Waliyy","The Protecting Friend"],["ٱلْحَمِيد","Al-Hamid","The Praiseworthy"],
+["ٱلْمُحْصِي","Al-Muhsi","The All-Enumerating"],["ٱلْمُبْدِئ","Al-Mubdi","The Originator"],
+["ٱلْمُعِيد","Al-Mu'id","The Restorer"],["ٱلْمُحْيِى","Al-Muhyi","The Giver of Life"],
+["ٱلْمُمِيت","Al-Mumit","The Bringer of Death"],["ٱلْحَي","Al-Hayy","The Ever-Living"],
+["ٱلْقَيُّوم","Al-Qayyum","The Sustainer of All"],["ٱلْوَاجِد","Al-Wajid","The Perceiver"],
+["ٱلْمَاجِد","Al-Majid","The Illustrious"],["ٱلْوَاحِد","Al-Wahid","The One"],
+["ٱلْأَحَد","Al-Ahad","The Unique"],["ٱلصَّمَد","As-Samad","The Eternal Refuge"],
+["ٱلْقَادِر","Al-Qadir","The All-Able"],["ٱلْمُقْتَدِر","Al-Muqtadir","The Powerful"],
+["ٱلْمُقَدِّم","Al-Muqaddim","The Expediter"],["ٱلْمُؤَخِّر","Al-Mu'akhkhir","The Delayer"],
+["ٱلْأَوَّل","Al-Awwal","The First"],["ٱلْآخِر","Al-Akhir","The Last"],
+["ٱلظَّاهِر","Az-Zahir","The Manifest"],["ٱلْبَاطِن","Al-Batin","The Hidden"],
+["ٱلْوَالِي","Al-Wali","The Governor"],["ٱلْمُتَعَالِي","Al-Muta'ali","The Self-Exalted"],
+["ٱلْبَر","Al-Barr","The Source of Goodness"],["ٱلتَّوَّاب","At-Tawwab","The Ever-Relenting"],
+["ٱلْمُنْتَقِم","Al-Muntaqim","The Avenger"],["ٱلْعَفُو","Al-Afuww","The Pardoner"],
+["ٱلرَّؤُوف","Ar-Ra'uf","The Most Kind"],["مَالِكُ ٱلْمُلْك","Malik-ul-Mulk","Owner of All Sovereignty"],
+["ذُو ٱلْجَلَالِ وَٱلْإِكْرَام","Dhul-Jalali wal-Ikram","Lord of Majesty and Honor"],
+["ٱلْمُقْسِط","Al-Muqsit","The Equitable"],["ٱلْجَامِع","Al-Jami","The Gatherer"],
+["ٱلْغَنِي","Al-Ghaniyy","The Self-Sufficient"],["ٱلْمُغْنِي","Al-Mughni","The Enricher"],
+["ٱلْمَانِع","Al-Mani","The Preventer"],["ٱلضَّار","Ad-Darr","The Distresser"],
+["ٱلنَّافِع","An-Nafi","The Benefactor"],["ٱلنُّور","An-Nur","The Light"],
+["ٱلْهَادِي","Al-Hadi","The Guide"],["ٱلْبَدِيع","Al-Badi","The Incomparable Originator"],
+["ٱلْبَاقِي","Al-Baqi","The Everlasting"],["ٱلْوَارِث","Al-Warith","The Inheritor"],
+["ٱلرَّشِيد","Ar-Rashid","The Guide to the Right Path"],["ٱلصَّبُور","As-Sabur","The Most Patient"]
+];
+const namesGrid=document.getElementById('namesGrid');
+const nameSearch=document.getElementById('nameSearch');
+function renderNames(){
+  const q=(nameSearch.value||"").toLowerCase();
+  namesGrid.innerHTML="";
+  names.forEach((n,i)=>{
+    if(q && !(n[1].toLowerCase().includes(q)||n[2].toLowerCase().includes(q))) return;
+    namesGrid.insertAdjacentHTML('beforeend',
+      `<div class="name"><div class="no">${i+1}</div><div class="ar">${n[0]}</div>
+       <div class="tr">${n[1]}</div><div class="en">${n[2]}</div></div>`);
+  });
+}
+nameSearch.addEventListener('input',renderNames);
+renderNames();
+
+/* ---------- Tab switching ---------- */
+document.querySelectorAll('#tabs button[data-view]').forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll('#tabs button[data-view]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const v=btn.dataset.view;
+    document.getElementById('view-themes').classList.toggle('hidden',v!=='themes');
+    document.getElementById('view-surahs').classList.toggle('hidden',v!=='surahs');
+    document.getElementById('view-names').classList.toggle('hidden',v!=='names');
+  };
+});
+</script>
+</body>
+</html>
