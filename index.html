@@ -55,6 +55,18 @@
   .full-status{text-align:center;color:var(--muted);font-size:13px;padding:6px}
   .full-wrap{max-width:900px;margin:0 auto;padding:0 20px;display:flex;flex-direction:column;gap:8px}
   .full-wrap .ayah{background:linear-gradient(160deg,var(--panel2),var(--panel))}
+  .fav-btn{background:transparent;border:1px solid var(--line);color:var(--gold);
+    border-radius:6px;padding:1px 7px;font-size:13px;cursor:pointer}
+  .fav-btn:hover{border-color:var(--gold)}
+  .fav-btn.faved{color:var(--gold);border-color:var(--gold);background:#2a2410}
+  .fav-count{color:var(--ink);font-size:14px;font-weight:600;padding:8px 4px}
+  #favPlayAll,#favExport,#favClear{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:9px 14px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
+  #favPlayAll:hover{border-color:var(--accent2);color:var(--accent2)}
+  #favExport:hover{border-color:var(--accent);color:var(--accent)}
+  #favClear:hover{border-color:#7a4a4a;color:#e79a9a}
+  #fullBrowseBy,#fullJuz{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:10px 12px;border-radius:10px;font-size:13px;cursor:pointer}
   /* mini player bar */
   #playerBar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:50;
     display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#1d2b3a,#16212e);
@@ -175,6 +187,7 @@
   <button data-view="surahs">📜 Surah Index (114)</button>
   <button data-view="names">🕌 99 Names</button>
   <button data-view="full">📕 Full Quran</button>
+  <button data-view="favorites">⭐ Favorites</button>
   <button onclick="window.print()">🖨️ Print / PDF</button>
 </div>
 
@@ -230,7 +243,12 @@
 
 <div id="view-full" class="hidden">
   <div class="toolbar">
+    <select id="fullBrowseBy" title="Browse by">
+      <option value="chapter">By Surah</option>
+      <option value="juz">By Juz</option>
+    </select>
     <select id="fullChapter" title="Choose surah"></select>
+    <select id="fullJuz" title="Choose juz" class="hidden"></select>
     <input id="fullSearch" type="text" placeholder="🔎 Search the whole Quran by keyword… (e.g. mercy, orphan)" />
     <button id="fullSearchBtn">Search</button>
   </div>
@@ -239,6 +257,17 @@
   <div style="text-align:center;padding:10px 0 40px">
     <button id="fullMore" class="hidden">Load more ▾</button>
   </div>
+</div>
+
+<div id="view-favorites" class="hidden">
+  <div class="toolbar">
+    <span id="favCount" class="fav-count">0 saved verses</span>
+    <button id="favPlayAll" class="hidden">▶ Play all favorites</button>
+    <button id="favExport" class="hidden">⬇️ Export</button>
+    <button id="favClear" class="hidden">🗑️ Clear all</button>
+  </div>
+  <div class="full-wrap" id="favWrap"></div>
+  <div class="full-status" id="favEmpty">No favorites yet. Tap the ☆ on any verse to save it here.</div>
 </div>
 
 <footer>
@@ -415,6 +444,7 @@ function render(){
                 <span class="ref">${a[0]}</span>
                 <span class="desc">${a[1]}</span>
                 <span class="ayah-actions">
+                  <button class="fav-btn" data-key="${first}" title="Save to favorites">☆</button>
                   <button class="audio-btn" data-key="${first}" title="Play recitation">▶</button>
                   <button class="copy-btn" data-ref="${a[0]}" title="Copy reference">⧉</button>
                   <a href="${url}" target="_blank" title="Read on quran.com">↗</a>
@@ -457,6 +487,8 @@ function render(){
             playAyah(btn.dataset.key, btn);
           });
         });
+        // favorite buttons
+        wireFavButtons(el);
         // play-all button
         const pa = el.querySelector('.playall-btn');
         if(pa){
@@ -813,6 +845,65 @@ function renderNames(){
 nameSearch.addEventListener('input',renderNames);
 renderNames();
 
+/* ================= (C) Favorites / bookmarks ================= */
+const FAV_KEY="quranFavoritesV1";
+let favorites=[];
+try{ favorites=JSON.parse(localStorage.getItem(FAV_KEY)||"[]"); }catch(e){ favorites=[]; }
+function saveFav(){ try{ localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }catch(e){} }
+function isFav(key){ return favorites.includes(key); }
+function toggleFav(key){
+  if(isFav(key)) favorites=favorites.filter(k=>k!==key);
+  else favorites.push(key);
+  saveFav(); refreshFavStars();
+  const favView=document.getElementById('view-favorites');
+  if(favView && !favView.classList.contains('hidden')) renderFavorites();
+}
+function refreshFavStars(){
+  document.querySelectorAll('.fav-btn').forEach(b=>{
+    const on=isFav(b.dataset.key);
+    b.textContent = on ? "★" : "☆";
+    b.classList.toggle('faved', on);
+  });
+}
+function wireFavButtons(scope){
+  scope.querySelectorAll('.fav-btn').forEach(b=>{
+    b.textContent = isFav(b.dataset.key) ? "★" : "☆";
+    b.classList.toggle('faved', isFav(b.dataset.key));
+    b.addEventListener('click',e=>{ e.stopPropagation(); toggleFav(b.dataset.key); });
+  });
+}
+async function renderFavorites(){
+  const wrap=document.getElementById('favWrap'), empty=document.getElementById('favEmpty'),
+        count=document.getElementById('favCount');
+  count.textContent = `${favorites.length} saved verse${favorites.length===1?"":"s"}`;
+  ['favPlayAll','favExport','favClear'].forEach(id=>document.getElementById(id).classList.toggle('hidden',!favorites.length));
+  if(!favorites.length){ wrap.innerHTML=""; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  wrap.innerHTML = `<div class="full-status">Loading ${favorites.length} saved verses…</div>`;
+  const trId=currentTr(); const rows=[];
+  for(const key of favorites){
+    try{ const {ar,en}=await fetchVerse(key,trId); rows.push(verseRowHtml(key,ar,en)); }
+    catch(e){ rows.push(verseRowHtml(key,"","(offline — connect to load text)")); }
+  }
+  wrap.innerHTML=rows.join("");
+  wireVerseButtons(wrap);
+}
+document.getElementById('favClear').addEventListener('click',()=>{
+  if(!confirm("Remove all saved verses?")) return;
+  favorites=[]; saveFav(); refreshFavStars(); renderFavorites();
+});
+document.getElementById('favExport').addEventListener('click',()=>{
+  const blob=new Blob([favorites.map(k=>"Quran "+k+" — https://quran.com/"+k.replace(':','/')).join("\n")],{type:"text/plain"});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download="quran-favorites.txt"; a.click();
+});
+document.getElementById('favPlayAll').addEventListener('click',function(){
+  const wrap=document.getElementById('favWrap');
+  if(this.dataset.playing==="1"){ stopAll(); this.dataset.playing="0"; this.textContent="▶ Play all favorites"; return; }
+  this.dataset.playing="1"; this.textContent="⏸ Stop favorites"; resetInlineBtn(); currentBtn=this;
+  const items=favorites.map(k=>({key:k, ref:k, label:"Favorite "+k}));
+  startQueue(items,0);
+});
+
 /* ---------- Tab switching ---------- */
 document.querySelectorAll('#tabs button[data-view]').forEach(btn=>{
   btn.onclick=()=>{
@@ -823,7 +914,9 @@ document.querySelectorAll('#tabs button[data-view]').forEach(btn=>{
     document.getElementById('view-surahs').classList.toggle('hidden',v!=='surahs');
     document.getElementById('view-names').classList.toggle('hidden',v!=='names');
     document.getElementById('view-full').classList.toggle('hidden',v!=='full');
+    document.getElementById('view-favorites').classList.toggle('hidden',v!=='favorites');
     if(v==='full') initFullQuran();
+    if(v==='favorites') renderFavorites();
   };
 });
 
@@ -885,22 +978,26 @@ async function findAllVerses(card, btn, title){
         const key=r.verse_key;
         const tr=((r.translations||[])[0]||{}).text||"";
         const clean=tr.replace(/<[^>]+>/g,"");
+        const ar=(r.text||r.text_uthmani||"");
         return `<div class="ayah" data-key="${key}">
           <div class="ayah-head">
             <span class="ref">${key}</span>
             <span class="desc">${clean}</span>
             <span class="ayah-actions">
+              <button class="fav-btn" data-key="${key}" title="Save to favorites">☆</button>
               <button class="audio-btn" data-key="${key}" title="Play recitation">▶</button>
               <button class="copy-btn" data-ref="${key}" title="Copy reference">⧉</button>
               <a href="https://quran.com/${key.replace(':','/')}" target="_blank" title="Read on quran.com">↗</a>
             </span>
           </div>
+          ${ar?`<div class="ayah-trans"><div class="ar-line">${ar}</div></div>`:""}
         </div>`;
       }).join("");
     card.querySelector('.ayah-list').appendChild(box);
     // wire buttons inside results
     box.querySelectorAll('.audio-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();playAyah(b.dataset.key,b);}));
     box.querySelectorAll('.copy-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();navigator.clipboard.writeText("Quran "+b.dataset.ref).then(()=>{const o=b.textContent;b.textContent="✓";setTimeout(()=>b.textContent=o,1000);});}));
+    wireFavButtons(box);
     btn.textContent="✖ Hide live results";
   }catch(err){
     btn.textContent="⚠ Search failed (offline?) — retry";
@@ -909,16 +1006,52 @@ async function findAllVerses(card, btn, title){
 }
 
 /* ================= (B) Full Quran browser ================= */
-let fullInited=false, fullChapter=1, fullPage=1, fullMode="chapter", fullQuery="";
+let fullInited=false, fullChapter=1, fullPage=1, fullMode="chapter", fullQuery="", fullJuz=1;
 function initFullQuran(){
   if(fullInited) return; fullInited=true;
   const sel=document.getElementById('fullChapter');
   sel.innerHTML = surahs.map(s=>`<option value="${s[0]}">${s[0]}. ${s[1]} — ${s[2]} (${s[4]})</option>`).join("");
   sel.addEventListener('change',()=>{ fullChapter=+sel.value; fullMode="chapter"; fullPage=1; document.getElementById('fullWrap').innerHTML=""; loadFullChapter(true); });
-  document.getElementById('fullMore').addEventListener('click',()=>{ fullMode==="chapter"?loadFullChapter(false):loadFullSearch(false); });
+  const juzSel=document.getElementById('fullJuz');
+  juzSel.innerHTML = Array.from({length:30},(_,i)=>`<option value="${i+1}">Juz ${i+1}</option>`).join("");
+  juzSel.addEventListener('change',()=>{ fullJuz=+juzSel.value; fullMode="juz"; fullPage=1; document.getElementById('fullWrap').innerHTML=""; loadFullJuz(true); });
+  const browseBy=document.getElementById('fullBrowseBy');
+  browseBy.addEventListener('change',()=>{
+    const byJuz = browseBy.value==="juz";
+    juzSel.classList.toggle('hidden',!byJuz);
+    sel.classList.toggle('hidden',byJuz);
+    document.getElementById('fullWrap').innerHTML="";
+    if(byJuz){ fullMode="juz"; fullPage=1; loadFullJuz(true); }
+    else { fullMode="chapter"; fullPage=1; loadFullChapter(true); }
+  });
+  document.getElementById('fullMore').addEventListener('click',()=>{
+    if(fullMode==="chapter") loadFullChapter(false);
+    else if(fullMode==="juz") loadFullJuz(false);
+    else loadFullSearch(false);
+  });
   document.getElementById('fullSearchBtn').addEventListener('click',doFullSearch);
   document.getElementById('fullSearch').addEventListener('keydown',e=>{ if(e.key==='Enter') doFullSearch(); });
   loadFullChapter(true);
+}
+async function loadFullJuz(reset){
+  const wrap=document.getElementById('fullWrap'), status=document.getElementById('fullStatus'), more=document.getElementById('fullMore');
+  if(reset){ wrap.innerHTML=""; fullPage=1; }
+  status.textContent="Loading juz…";
+  try{
+    const trId=currentTr();
+    const res=await fetch(`https://api.quran.com/api/v4/verses/by_juz/${fullJuz}?per_page=20&page=${fullPage}&fields=text_uthmani&translations=${trId}`);
+    if(!res.ok) throw new Error(res.status);
+    const data=await res.json();
+    (data.verses||[]).forEach(v=>{
+      const tr=((v.translations||[])[0]||{}).text||"";
+      wrap.insertAdjacentHTML('beforeend', verseRowHtml(v.verse_key, v.text_uthmani, tr));
+    });
+    wireVerseButtons(wrap);
+    const pg=data.pagination||{};
+    status.textContent=`Juz ${fullJuz} · ${pg.total_records} ayahs`;
+    if(pg.next_page){ fullPage=pg.next_page; more.classList.remove('hidden'); more.textContent=`Load more ▾ (${wrap.children.length}/${pg.total_records})`; }
+    else more.classList.add('hidden');
+  }catch(err){ status.textContent="⚠ Could not load juz (offline?)."; }
 }
 function verseRowHtml(key, arabic, translation){
   const clean=(translation||"").replace(/<sup[^>]*>.*?<\/sup>/g,"").replace(/<[^>]+>/g,"");
@@ -926,6 +1059,7 @@ function verseRowHtml(key, arabic, translation){
     <div class="ayah-head">
       <span class="ref">${key}</span>
       <span class="ayah-actions">
+        <button class="fav-btn" data-key="${key}" title="Save to favorites">☆</button>
         <button class="audio-btn" data-key="${key}" title="Play recitation">▶</button>
         <button class="copy-btn" data-ref="${key}" title="Copy reference">⧉</button>
         <a href="https://quran.com/${key.replace(':','/')}" target="_blank" title="Read on quran.com">↗</a>
@@ -937,6 +1071,7 @@ function verseRowHtml(key, arabic, translation){
 function wireVerseButtons(scope){
   scope.querySelectorAll('.audio-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();playAyah(b.dataset.key,b);}));
   scope.querySelectorAll('.copy-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();navigator.clipboard.writeText("Quran "+b.dataset.ref).then(()=>{const o=b.textContent;b.textContent="✓";setTimeout(()=>b.textContent=o,1000);});}));
+  wireFavButtons(scope);
 }
 async function loadFullChapter(reset){
   const wrap=document.getElementById('fullWrap'), status=document.getElementById('fullStatus'), more=document.getElementById('fullMore');
