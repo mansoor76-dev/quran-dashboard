@@ -39,6 +39,22 @@
     color:var(--accent2);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;
     font-weight:600;margin-bottom:2px}
   .playall-btn:hover{background:var(--accent2);color:#04263a}
+  .ayah-actions-row{display:flex;gap:8px;flex-wrap:wrap}
+  .findall-btn{align-self:flex-start;background:#2a2340;border:1px solid #8b7ad6;
+    color:#c9bdf5;border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600}
+  .findall-btn:hover{background:#8b7ad6;color:#150f2e}
+  .topic-results{margin-top:6px;display:flex;flex-direction:column;gap:6px}
+  .topic-head{font-size:12px;color:var(--accent2);padding:4px 0}
+  .topic-note{color:#7d93a8;font-weight:400}
+  /* Full Quran view */
+  #fullChapter{background:var(--panel);border:1px solid var(--line);color:var(--ink);
+    padding:10px 12px;border-radius:10px;font-size:13px;cursor:pointer;max-width:280px}
+  #fullSearchBtn,#fullMore{background:var(--panel);border:1px solid var(--accent);color:var(--accent);
+    padding:10px 16px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600}
+  #fullSearchBtn:hover,#fullMore:hover{background:var(--accent);color:#04201c}
+  .full-status{text-align:center;color:var(--muted);font-size:13px;padding:6px}
+  .full-wrap{max-width:900px;margin:0 auto;padding:0 20px;display:flex;flex-direction:column;gap:8px}
+  .full-wrap .ayah{background:linear-gradient(160deg,var(--panel2),var(--panel))}
   /* mini player bar */
   #playerBar{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:50;
     display:flex;align-items:center;gap:10px;background:linear-gradient(160deg,#1d2b3a,#16212e);
@@ -158,6 +174,7 @@
   <button data-view="themes" class="active">🗂️ Themes</button>
   <button data-view="surahs">📜 Surah Index (114)</button>
   <button data-view="names">🕌 99 Names</button>
+  <button data-view="full">📕 Full Quran</button>
   <button onclick="window.print()">🖨️ Print / PDF</button>
 </div>
 
@@ -209,6 +226,19 @@
     <input id="nameSearch" type="text" placeholder="🔎 Search a name… (e.g. Rahman, Mercy)" />
   </div>
   <div class="names" id="namesGrid"></div>
+</div>
+
+<div id="view-full" class="hidden">
+  <div class="toolbar">
+    <select id="fullChapter" title="Choose surah"></select>
+    <input id="fullSearch" type="text" placeholder="🔎 Search the whole Quran by keyword… (e.g. mercy, orphan)" />
+    <button id="fullSearchBtn">Search</button>
+  </div>
+  <div class="full-status" id="fullStatus"></div>
+  <div class="full-wrap" id="fullWrap"></div>
+  <div style="text-align:center;padding:10px 0 40px">
+    <button id="fullMore" class="hidden">Load more ▾</button>
+  </div>
 </div>
 
 <footer>
@@ -372,7 +402,10 @@ function render(){
       const ayahHtml = ay.length ? `
         <button class="ayah-toggle">📿 Show ${ay.length} associated ayahs ▾</button>
         <div class="ayah-list hidden">
-          <button class="playall-btn">▶ Play all (${ay.length})</button>
+          <div class="ayah-actions-row">
+            <button class="playall-btn">▶ Play all (${ay.length})</button>
+            <button class="findall-btn" data-title="${c.title.replace(/"/g,'&quot;')}">🔍 Find all verses on this topic (live)</button>
+          </div>
           ${ay.map(a=>{
             const first = a[0].split("-")[0]; // e.g. 2:155 from 2:155-157
             const parts = first.split(":");
@@ -430,6 +463,14 @@ function render(){
           pa.addEventListener('click',e=>{
             e.stopPropagation();
             playAll(el, pa);
+          });
+        }
+        // find-all-verses (live topic search) button
+        const fa = el.querySelector('.findall-btn');
+        if(fa){
+          fa.addEventListener('click',e=>{
+            e.stopPropagation();
+            findAllVerses(el, fa, fa.dataset.title);
           });
         }
       }
@@ -781,8 +822,169 @@ document.querySelectorAll('#tabs button[data-view]').forEach(btn=>{
     document.getElementById('view-themes').classList.toggle('hidden',v!=='themes');
     document.getElementById('view-surahs').classList.toggle('hidden',v!=='surahs');
     document.getElementById('view-names').classList.toggle('hidden',v!=='names');
+    document.getElementById('view-full').classList.toggle('hidden',v!=='full');
+    if(v==='full') initFullQuran();
   };
 });
+
+/* ================= (A) Live topic search per category ================= */
+/* Keyword(s) per category used against the quran.com search API. */
+const topicKeywords = {
+  "Tawhid — Oneness of God":"Allah is one god no deity",
+  "Revelation & Scriptures":"revealed the book scripture",
+  "Angels (Mala'ikah)":"angels",
+  "The Afterlife (Akhirah)":"Day of Resurrection hereafter",
+  "Qadar — Divine Decree":"decree measure ordained",
+  "Adam & Early Humanity":"Adam",
+  "Nuh (Noah)":"Noah",
+  "Ibrahim (Abraham)":"Abraham",
+  "Yusuf (Joseph)":"Joseph",
+  "Musa (Moses)":"Moses",
+  "Dawud & Sulayman":"Solomon David",
+  "'Isa (Jesus) & Maryam":"Jesus Mary son of Mary",
+  "Muhammad ﷺ":"messenger Muhammad",
+  "Other Prophets":"Jonah Job prophet",
+  "Five Pillars":"prayer zakah fasting pilgrimage",
+  "Ramadan & the Quran":"Ramadan fasting night of decree",
+  "Dua & Remembrance":"call upon your Lord remembrance",
+  "Patience & Gratitude":"patience grateful",
+  "Justice & Honesty":"justice witnesses",
+  "Compassion & Charity":"charity orphan poor kindness",
+  "Prohibitions & Sins":"forbidden unlawful intoxicants",
+  "Family & Personal Law":"marriage inheritance divorce",
+  "Lawful & Unlawful (Halal/Haram)":"lawful good food forbidden",
+  "Governance & Community":"consult trust obey authority",
+  "Cosmos & Nature":"heavens earth sun moon stars",
+  "Human & Life Origins":"created man from clay water",
+  "Animals & Provision":"cattle bee provision creature",
+  "People of the Cave":"cave",
+  "Nations of the Past":"Aad Thamud people of",
+  "Parables (Amthal)":"example parable likeness",
+  "Landmark Chapters":"praise Lord of the worlds",
+  "Protection & Refuge":"seek refuge"
+};
+
+async function findAllVerses(card, btn, title){
+  const kw = topicKeywords[title] || title;
+  const trId = currentTr();
+  // container
+  let box = card.querySelector('.topic-results');
+  if(box){ box.remove(); btn.textContent="🔍 Find all verses on this topic (live)"; return; } // toggle off
+  btn.textContent="⏳ Searching…";
+  try{
+    const res = await fetch(`https://api.quran.com/api/v4/search?q=${encodeURIComponent(kw)}&size=50&page=0&language=en&translations=${trId}`);
+    if(!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    const s = data.search || {};
+    const results = s.results || [];
+    box = document.createElement('div');
+    box.className='topic-results';
+    box.innerHTML = `<div class="topic-head">🔍 ${s.total_results||results.length} verses match “${kw}” — showing ${results.length}
+      <span class="topic-note">(live keyword search via quran.com — not a scholarly classification)</span></div>` +
+      results.map(r=>{
+        const key=r.verse_key;
+        const tr=((r.translations||[])[0]||{}).text||"";
+        const clean=tr.replace(/<[^>]+>/g,"");
+        return `<div class="ayah" data-key="${key}">
+          <div class="ayah-head">
+            <span class="ref">${key}</span>
+            <span class="desc">${clean}</span>
+            <span class="ayah-actions">
+              <button class="audio-btn" data-key="${key}" title="Play recitation">▶</button>
+              <button class="copy-btn" data-ref="${key}" title="Copy reference">⧉</button>
+              <a href="https://quran.com/${key.replace(':','/')}" target="_blank" title="Read on quran.com">↗</a>
+            </span>
+          </div>
+        </div>`;
+      }).join("");
+    card.querySelector('.ayah-list').appendChild(box);
+    // wire buttons inside results
+    box.querySelectorAll('.audio-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();playAyah(b.dataset.key,b);}));
+    box.querySelectorAll('.copy-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();navigator.clipboard.writeText("Quran "+b.dataset.ref).then(()=>{const o=b.textContent;b.textContent="✓";setTimeout(()=>b.textContent=o,1000);});}));
+    btn.textContent="✖ Hide live results";
+  }catch(err){
+    btn.textContent="⚠ Search failed (offline?) — retry";
+    setTimeout(()=>btn.textContent="🔍 Find all verses on this topic (live)",2500);
+  }
+}
+
+/* ================= (B) Full Quran browser ================= */
+let fullInited=false, fullChapter=1, fullPage=1, fullMode="chapter", fullQuery="";
+function initFullQuran(){
+  if(fullInited) return; fullInited=true;
+  const sel=document.getElementById('fullChapter');
+  sel.innerHTML = surahs.map(s=>`<option value="${s[0]}">${s[0]}. ${s[1]} — ${s[2]} (${s[4]})</option>`).join("");
+  sel.addEventListener('change',()=>{ fullChapter=+sel.value; fullMode="chapter"; fullPage=1; document.getElementById('fullWrap').innerHTML=""; loadFullChapter(true); });
+  document.getElementById('fullMore').addEventListener('click',()=>{ fullMode==="chapter"?loadFullChapter(false):loadFullSearch(false); });
+  document.getElementById('fullSearchBtn').addEventListener('click',doFullSearch);
+  document.getElementById('fullSearch').addEventListener('keydown',e=>{ if(e.key==='Enter') doFullSearch(); });
+  loadFullChapter(true);
+}
+function verseRowHtml(key, arabic, translation){
+  const clean=(translation||"").replace(/<sup[^>]*>.*?<\/sup>/g,"").replace(/<[^>]+>/g,"");
+  return `<div class="ayah" data-key="${key}">
+    <div class="ayah-head">
+      <span class="ref">${key}</span>
+      <span class="ayah-actions">
+        <button class="audio-btn" data-key="${key}" title="Play recitation">▶</button>
+        <button class="copy-btn" data-ref="${key}" title="Copy reference">⧉</button>
+        <a href="https://quran.com/${key.replace(':','/')}" target="_blank" title="Read on quran.com">↗</a>
+      </span>
+    </div>
+    <div class="ayah-trans">${arabic?`<div class="ar-line">${arabic}</div>`:""}<div class="en-line">“${clean}”</div></div>
+  </div>`;
+}
+function wireVerseButtons(scope){
+  scope.querySelectorAll('.audio-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();playAyah(b.dataset.key,b);}));
+  scope.querySelectorAll('.copy-btn').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();navigator.clipboard.writeText("Quran "+b.dataset.ref).then(()=>{const o=b.textContent;b.textContent="✓";setTimeout(()=>b.textContent=o,1000);});}));
+}
+async function loadFullChapter(reset){
+  const wrap=document.getElementById('fullWrap'), status=document.getElementById('fullStatus'), more=document.getElementById('fullMore');
+  if(reset){ wrap.innerHTML=""; fullPage=1; }
+  status.textContent="Loading…";
+  try{
+    const trId=currentTr();
+    const res=await fetch(`https://api.quran.com/api/v4/verses/by_chapter/${fullChapter}?per_page=20&page=${fullPage}&fields=text_uthmani&translations=${trId}`);
+    if(!res.ok) throw new Error(res.status);
+    const data=await res.json();
+    (data.verses||[]).forEach(v=>{
+      const tr=((v.translations||[])[0]||{}).text||"";
+      wrap.insertAdjacentHTML('beforeend', verseRowHtml(v.verse_key, v.text_uthmani, tr));
+    });
+    wireVerseButtons(wrap);
+    const pg=data.pagination||{};
+    const sName=(surahs.find(s=>s[0]===fullChapter)||[])[1]||"";
+    status.textContent=`Surah ${fullChapter} — ${sName} · ${pg.total_records} ayahs`;
+    if(pg.next_page){ fullPage=pg.next_page; more.classList.remove('hidden'); more.textContent=`Load more ▾ (${wrap.children.length}/${pg.total_records})`; }
+    else more.classList.add('hidden');
+  }catch(err){ status.textContent="⚠ Could not load (offline?). Try again."; }
+}
+function doFullSearch(){
+  const q=document.getElementById('fullSearch').value.trim();
+  if(!q){ fullMode="chapter"; document.getElementById('fullWrap').innerHTML=""; loadFullChapter(true); return; }
+  fullQuery=q; fullMode="search"; fullPage=0; document.getElementById('fullWrap').innerHTML=""; loadFullSearch(true);
+}
+async function loadFullSearch(reset){
+  const wrap=document.getElementById('fullWrap'), status=document.getElementById('fullStatus'), more=document.getElementById('fullMore');
+  if(reset){ wrap.innerHTML=""; fullPage=0; }
+  status.textContent="Searching…";
+  try{
+    const trId=currentTr();
+    const res=await fetch(`https://api.quran.com/api/v4/search?q=${encodeURIComponent(fullQuery)}&size=20&page=${fullPage}&language=en&translations=${trId}`);
+    if(!res.ok) throw new Error(res.status);
+    const data=await res.json();
+    const s=data.search||{}; const results=s.results||[];
+    results.forEach(r=>{
+      const tr=((r.translations||[])[0]||{}).text||"";
+      wrap.insertAdjacentHTML('beforeend', verseRowHtml(r.verse_key, "", tr));
+    });
+    wireVerseButtons(wrap);
+    status.textContent=`🔍 “${fullQuery}” — ${s.total_results} matches (keyword search)`;
+    const shown=wrap.children.length;
+    if(shown < (s.total_results||0)){ fullPage++; more.classList.remove('hidden'); more.textContent=`Load more ▾ (${shown}/${s.total_results})`; }
+    else more.classList.add('hidden');
+  }catch(err){ status.textContent="⚠ Search failed (offline?)."; }
+}
 </script>
 </body>
 </html>
