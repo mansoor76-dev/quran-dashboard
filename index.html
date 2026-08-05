@@ -187,6 +187,7 @@
       <a id="dailyAyahLink" href="#" target="_blank" style="font-size:12px;color:var(--accent)">Read on quran.com ↗</a>
       <button id="dailyAyahPlay" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;padding:0">▶ Listen</button>
       <button id="dailyAyahFav" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:12px;padding:0">☆ Save</button>
+      <button id="dailyCopy" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:12px;padding:0" title="Copy ayah + hadith to share">📋 Copy reflection</button>
     </div>
   </div>
 
@@ -298,7 +299,7 @@
 <footer>
   *6,236 is the count in the widely used Hafs/Kufan numbering; other traditions differ slightly.<br/>
   Built as an educational overview • Verify specifics at quran.com<br/>
-  <span style="opacity:.7">Version 1.6 • Built 2026-08-05 15:08• <a href="https://mansoor76-dev.github.io/quran-dashboard/" target="_blank" style="color:inherit">live</a></span>
+  <span style="opacity:.7">Version 1.7 • Built 2026-08-05 15:19• <a href="https://mansoor76-dev.github.io/quran-dashboard/" target="_blank" style="color:inherit">live</a></span><br/><span id="viewCounter" style="opacity:.7">👁 Loading views…</span>
 </footer>
 
 <div id="playerBar" class="player-hidden">
@@ -1248,6 +1249,54 @@ async function loadDaily(){
   const rb=document.getElementById('dailyRefresh');
   if(rb) rb.addEventListener('click',()=>{ dailyOffset++; loadDaily(); });
   loadDaily();
+})();
+
+
+/* ================= Copy today's reflection ================= */
+(function(){
+  const btn=document.getElementById('dailyCopy');
+  if(!btn) return;
+  btn.addEventListener('click',()=>{
+    const ar=(document.getElementById('dailyAyahAr').textContent||"").trim();
+    const en=(document.getElementById('dailyAyahEn').textContent||"").trim();
+    const ref=(document.getElementById('dailyAyahRef').textContent||"").replace(/^·\s*/,'').trim();
+    const had=(document.getElementById('dailyHadithText').textContent||"").trim();
+    const src=(document.getElementById('dailyHadithSrc').textContent||"").trim();
+    const link="https://quran.com/"+ref.replace(':','/');
+    const text =
+      "🌅 Daily Reflection\n\n"+
+      "📖 Ayah of the Day — Quran "+ref+"\n"+
+      (ar?ar+"\n":"")+
+      (en?"“"+en+"”\n":"")+
+      link+"\n\n"+
+      "🕌 Hadith of the Day\n"+
+      had+"\n"+src+"\n\n"+
+      "— via the Quran Dashboard\nhttps://mansoor76-dev.github.io/quran-dashboard/";
+    navigator.clipboard.writeText(text).then(()=>{
+      const o=btn.textContent; btn.textContent="✓ Copied!";
+      setTimeout(()=>btn.textContent=o,1500);
+    }).catch(()=>{ btn.textContent="⚠ Press ⌘C"; });
+  });
+})();
+
+/* ================= Page view counter ================= */
+(function(){
+  const el=document.getElementById('viewCounter');
+  if(!el) return;
+  // Local (always works): counts this browser's visits.
+  let mine=0;
+  try{ mine=(parseInt(localStorage.getItem('qdVisits')||"0",10)||0)+1; localStorage.setItem('qdVisits',String(mine)); }catch(e){ mine=1; }
+  // Global (best-effort) via free CounterAPI; falls back silently if offline/blocked.
+  const NS="quran-dashboard-mansoor76", KEY="pageviews";
+  const render=(total)=>{
+    el.innerHTML = (total!=null ? ("👁️ "+total.toLocaleString()+" total views") : "👁️ views")
+      + " · <span title=\"visits from this browser\">"+mine.toLocaleString()+" from you</span>";
+  };
+  render(null);
+  fetch("https://api.counterapi.dev/v1/"+NS+"/"+KEY+"/up")
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(d=>{ const n=(d && (d.count!=null?d.count:d.value)); if(typeof n==="number") render(n); })
+    .catch(()=>{ /* keep the 'views' placeholder; local count still shows */ });
 })();
 
 </script>
