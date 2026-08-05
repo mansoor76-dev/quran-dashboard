@@ -298,7 +298,7 @@
 <footer>
   *6,236 is the count in the widely used Hafs/Kufan numbering; other traditions differ slightly.<br/>
   Built as an educational overview • Verify specifics at quran.com<br/>
-  <span style="opacity:.7">Version 1.5 • Built 2026-08-05 15:00• <a href="https://mansoor76-dev.github.io/quran-dashboard/" target="_blank" style="color:inherit">live</a></span>
+  <span style="opacity:.7">Version 1.6 • Built 2026-08-05 15:08• <a href="https://mansoor76-dev.github.io/quran-dashboard/" target="_blank" style="color:inherit">live</a></span>
 </footer>
 
 <div id="playerBar" class="player-hidden">
@@ -639,7 +639,7 @@ const pbRef=document.getElementById('pbRef'), pbSub=document.getElementById('pbS
       pbRep=document.getElementById('pbRep'), pbPlay=document.getElementById('pbPlay');
 function repeatN(){ return parseInt(document.getElementById('repeatSel').value)||1; }
 function showBar(){ bar.classList.remove('player-hidden'); }
-function resetInlineBtn(){ if(currentBtn){ currentBtn.textContent = currentBtn.classList.contains('playall-btn')?`▶ Play all`:"▶"; currentBtn=null; } }
+function resetInlineBtn(){ if(currentBtn){ currentBtn.textContent = (currentBtn.dataset.orig!==undefined)?currentBtn.dataset.orig:(currentBtn.classList.contains('playall-btn')?`▶ Play all`:"▶"); currentBtn=null; } }
 function stopAudio(){ if(currentAudio){ currentAudio.pause(); currentAudio.src=""; currentAudio=null; } }
 function stopAll(){ playing=false; stopAudio(); resetInlineBtn(); queue=[]; document.querySelectorAll('.playall-btn').forEach(b=>{b.dataset.playing="0";b.textContent=`▶ Play all (${b.closest('.card').querySelectorAll('.ayah').length})`;}); pbPlay.textContent="▶"; pbSub.textContent="Stopped"; }
 
@@ -666,12 +666,15 @@ async function playIndex(i){
 function startQueue(items,startAt=0){ queue=items; repLeft=repeatN(); playIndex(startAt); }
 
 /* Single ayah → build a 1-item queue (still uses repeat setting). */
-async function playAyah(key, btn){
+async function playAyah(key, btn, ref, label){
   const isSame = currentBtn===btn && playing;
   if(isSame){ stopAll(); return; }
-  resetInlineBtn(); currentBtn=btn; btn.textContent="⏸";
-  const row=btn.closest('.ayah'); const ref=row.querySelector('.ref').textContent;
-  const label=row.querySelector('.desc').textContent;
+  resetInlineBtn(); currentBtn=btn;
+  if(btn.dataset.orig===undefined) btn.dataset.orig=btn.textContent;
+  btn.textContent="⏸";
+  const row=btn.closest('.ayah');
+  ref = ref || (row && row.querySelector('.ref') ? row.querySelector('.ref').textContent : key);
+  label = label || (row && row.querySelector('.desc') ? row.querySelector('.desc').textContent : "");
   startQueue([{key,ref,label}],0);
 }
 
@@ -1152,9 +1155,7 @@ async function loadFullSearch(reset){
 /* ================= Daily Ayah + Hadith of the Day ================= */
 /* Curated verse keys (authentic, well-known, uplifting). Rotate by day-of-year. */
 const DAILY_AYAHS = [
-  "2:255","2:286","3:159","13:28","65:3","94:5","2:152","39:53","3:139","2:186",
-  "16:97","55:13","94:6","2:45","103:1","112:1","1:5","24:35","67:2","36:82",
-  "40:60","2:255","17:23","31:14","49:13","6:162","29:69","93:5","2:216","3:26"
+  "1:1","1:5","1:6","2:2","2:45","2:152","2:153","2:155","2:186","2:216","2:255","2:256","2:261","2:286","3:8","3:26","3:31","3:54","3:92","3:104","3:133","3:139","3:159","3:173","3:185","3:190","4:36","4:59","4:79","4:103","4:135","5:8","5:32","6:59","6:162","7:56","7:180","7:199","8:2","8:46","9:40","9:51","10:57","11:88","11:114","12:87","13:11","13:28","14:7","15:9","16:90","16:97","16:125","17:23","17:36","17:70","17:80","17:82","18:10","18:23","19:96","20:25","20:114","21:87","23:1","24:35","25:63","25:74","27:62","28:24","29:45","29:69","30:21","31:14","31:18","33:35","33:41","33:56","35:5","36:82","39:9","39:53","40:60","41:34","42:20","46:15","47:7","49:11","49:12","49:13","50:16","51:56","53:39","55:13","55:60","57:4","57:20","59:22","59:23","64:11","65:2","65:3","66:8","67:2","73:20","76:3","89:27","89:28","93:5","94:5","94:6","96:1","103:1","103:2","103:3","109:6","112:1","113:1","114:1"
 ];
 /* Curated hadith (widely-cited English translations). */
 const DAILY_HADITHS = [
@@ -1177,7 +1178,37 @@ const DAILY_HADITHS = [
   {t:"Part of the perfection of one's Islam is leaving that which does not concern him.", s:"Tirmidhi"},
   {t:"The merciful are shown mercy by the Most Merciful. Be merciful to those on earth.", s:"Abu Dawud & Tirmidhi"},
   {t:"Do not belittle any good deed, even meeting your brother with a cheerful face.", s:"Muslim"},
-  {t:"Give the worker his wages before his sweat dries.", s:"Ibn Majah"}
+  {t:"Give the worker his wages before his sweat dries.", s:"Ibn Majah"},
+  {t:"The best of you are those who are best to their families.", s:"Tirmidhi"},
+  {t:"Cleanliness is half of faith.", s:"Muslim"},
+  {t:"Whoever relieves a believer's hardship, Allah will relieve his hardship on the Day of Resurrection.", s:"Muslim"},
+  {t:"A good word is charity, and every step you take to prayer is charity.", s:"Bukhari & Muslim"},
+  {t:"Modesty brings nothing but good.", s:"Bukhari & Muslim"},
+  {t:"The seeking of knowledge is obligatory upon every Muslim.", s:"Ibn Majah"},
+  {t:"Whoever guides someone to goodness will have a reward like the one who does it.", s:"Muslim"},
+  {t:"Kindness is not found in anything except that it beautifies it, and it is not removed from anything except that it disgraces it.", s:"Muslim"},
+  {t:"Verily, Allah is Kind and loves kindness in all matters.", s:"Bukhari & Muslim"},
+  {t:"The upper hand (that gives) is better than the lower hand (that takes).", s:"Bukhari & Muslim"},
+  {t:"Whoever is not merciful to others will not be treated mercifully.", s:"Bukhari & Muslim"},
+  {t:"Speak good or remain silent; honor your neighbor; honor your guest.", s:"Bukhari & Muslim"},
+  {t:"Allah loves, when one of you does a task, that he does it with excellence.", s:"Al-Bayhaqi"},
+  {t:"The Muslim is the one from whose tongue and hand the people are safe.", s:"Bukhari & Muslim"},
+  {t:"Whoever conceals the faults of a Muslim, Allah will conceal his faults.", s:"Bukhari & Muslim"},
+  {t:"Two blessings people often take for granted: health and free time.", s:"Bukhari"},
+  {t:"Take advantage of five before five: your youth before old age, health before sickness, wealth before poverty, free time before busyness, and life before death.", s:"Al-Hakim"},
+  {t:"Be in this world as though you were a stranger or a traveler.", s:"Bukhari"},
+  {t:"Whoever loves to meet Allah, Allah loves to meet him.", s:"Bukhari & Muslim"},
+  {t:"The best charity is that given when you are in need and struggling.", s:"Abu Dawud"},
+  {t:"The most complete of the believers in faith are those with the best character.", s:"Tirmidhi"},
+  {t:"Deliberation is from Allah and haste is from Satan.", s:"Al-Bayhaqi"},
+  {t:"Whoever suppresses his anger while able to act upon it, Allah will fill his heart with contentment.", s:"Abu Dawud"},
+  {t:"Do not be people without minds of your own; if others do good, do good; and if they do wrong, do not do wrong.", s:"Tirmidhi"},
+  {t:"A man is upon the religion of his close friend, so let each of you look at whom he befriends.", s:"Abu Dawud & Tirmidhi"},
+  {t:"The world is a prison for the believer and a paradise for the disbeliever.", s:"Muslim"},
+  {t:"None of you should wish for death because of a calamity that befalls him.", s:"Bukhari & Muslim"},
+  {t:"He is not a believer whose stomach is filled while his neighbor goes hungry.", s:"Al-Bukhari (Al-Adab)"},
+  {t:"Trust in Allah, but tie your camel.", s:"Tirmidhi"},
+  {t:"The best of deeds is to bring happiness to a fellow Muslim.", s:"Al-Tabarani"}
 ];
 
 function dayOfYear(d){ const s=new Date(d.getFullYear(),0,0); return Math.floor((d-s)/86400000); }
@@ -1198,7 +1229,7 @@ async function loadDaily(){
   document.getElementById('dailyAyahRef').textContent = "· "+key;
   const link=document.getElementById('dailyAyahLink');
   link.href="https://quran.com/"+parts[0]+"/"+parts[1];
-  document.getElementById('dailyAyahPlay').onclick=()=>{ try{ playAyah(key, document.getElementById('dailyAyahPlay')); }catch(e){} };
+  document.getElementById('dailyAyahPlay').onclick=()=>{ const b=document.getElementById('dailyAyahPlay'); try{ playAyah(key, b, key, "Ayah of the Day"); }catch(e){ console.error(e); } };
   const favBtn=document.getElementById('dailyAyahFav');
   favBtn.textContent = (typeof isFav==="function" && isFav(key)) ? "★ Saved" : "☆ Save";
   favBtn.onclick=()=>{ try{ toggleFav(key); favBtn.textContent=isFav(key)?"★ Saved":"☆ Save"; if(typeof refreshFavStars==="function")refreshFavStars(); }catch(e){} };
