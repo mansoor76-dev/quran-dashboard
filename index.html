@@ -173,6 +173,31 @@
   </div>
 </header>
 
+<section id="dailyCard" style="max-width:900px;margin:18px auto 0;background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:16px 18px">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <h2 style="margin:0;font-size:18px">🌅 Daily Reflection <span style="color:var(--muted);font-weight:400;font-size:13px" id="dailyDate"></span></h2>
+    <button id="dailyRefresh" title="Show another" style="background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px">🔄 Shuffle</button>
+  </div>
+
+  <div style="margin-top:12px;border-left:3px solid var(--accent);padding:6px 0 6px 12px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent2)">📖 Ayah of the Day <span id="dailyAyahRef" style="text-transform:none;letter-spacing:0;color:var(--muted)"></span></div>
+    <div id="dailyAyahAr" dir="rtl" style="font-size:22px;line-height:1.9;color:var(--ink);margin:8px 0;font-family:'Scheherazade New','Amiri',serif">…</div>
+    <div id="dailyAyahEn" style="font-size:14px;color:var(--ink);line-height:1.6">Loading verse…</div>
+    <div style="margin-top:8px;display:flex;gap:10px;flex-wrap:wrap">
+      <a id="dailyAyahLink" href="#" target="_blank" style="font-size:12px;color:var(--accent)">Read on quran.com ↗</a>
+      <button id="dailyAyahPlay" style="background:none;border:none;color:var(--accent2);cursor:pointer;font-size:12px;padding:0">▶ Listen</button>
+      <button id="dailyAyahFav" style="background:none;border:none;color:var(--gold);cursor:pointer;font-size:12px;padding:0">☆ Save</button>
+    </div>
+  </div>
+
+  <div style="margin-top:14px;border-left:3px solid var(--gold);padding:6px 0 6px 12px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--gold)">�� Hadith of the Day</div>
+    <div id="dailyHadithText" style="font-size:14px;color:var(--ink);line-height:1.65;margin:8px 0">…</div>
+    <div id="dailyHadithSrc" style="font-size:12px;color:var(--muted)"></div>
+  </div>
+  <div style="margin-top:10px;font-size:11px;color:var(--muted)">💡 Rotates daily. Hadith text is a widely-cited translation — verify wording &amp; grading with an authenticated collection.</div>
+</section>
+
 <section class="stats">
   <div class="stat"><div class="num">114</div><div class="lbl">Surahs (Chapters)</div></div>
   <div class="stat"><div class="num">6,236</div><div class="lbl">Ayahs (Verses)*</div></div>
@@ -273,7 +298,7 @@
 <footer>
   *6,236 is the count in the widely used Hafs/Kufan numbering; other traditions differ slightly.<br/>
   Built as an educational overview • Verify specifics at quran.com<br/>
-  <span style="opacity:.7">Version 1.4 • Built 2026-08-05 09:57 • <a href="https://mansoor76-dev.github.io/quran-dashboard/" target="_blank" style="color:inherit">live</a></span>
+  <span style="opacity:.7">Version 1.5 • Built 2026-08-05 15:00• <a href="https://mansoor76-dev.github.io/quran-dashboard/" target="_blank" style="color:inherit">live</a></span>
 </footer>
 
 <div id="playerBar" class="player-hidden">
@@ -1123,6 +1148,77 @@ async function loadFullSearch(reset){
     else more.classList.add('hidden');
   }catch(err){ status.textContent="⚠ Search failed (offline?)."; }
 }
+
+/* ================= Daily Ayah + Hadith of the Day ================= */
+/* Curated verse keys (authentic, well-known, uplifting). Rotate by day-of-year. */
+const DAILY_AYAHS = [
+  "2:255","2:286","3:159","13:28","65:3","94:5","2:152","39:53","3:139","2:186",
+  "16:97","55:13","94:6","2:45","103:1","112:1","1:5","24:35","67:2","36:82",
+  "40:60","2:255","17:23","31:14","49:13","6:162","29:69","93:5","2:216","3:26"
+];
+/* Curated hadith (widely-cited English translations). */
+const DAILY_HADITHS = [
+  {t:"Actions are judged by intentions, and everyone will be rewarded according to what they intended.", s:"Bukhari & Muslim (Hadith 1)"},
+  {t:"None of you truly believes until he loves for his brother what he loves for himself.", s:"Bukhari & Muslim"},
+  {t:"The best among you are those who have the best manners and character.", s:"Bukhari"},
+  {t:"He who does not thank people, does not thank Allah.", s:"Abu Dawud & Tirmidhi"},
+  {t:"The strong is not the one who overcomes people by his strength, but the one who controls himself while in anger.", s:"Bukhari & Muslim"},
+  {t:"Make things easy and do not make them difficult; give glad tidings and do not repel people.", s:"Bukhari & Muslim"},
+  {t:"A kind word is charity.", s:"Bukhari & Muslim"},
+  {t:"Whoever believes in Allah and the Last Day, let him speak good or remain silent.", s:"Bukhari & Muslim"},
+  {t:"The most beloved deeds to Allah are those done regularly, even if small.", s:"Bukhari & Muslim"},
+  {t:"Allah does not look at your appearance or wealth, but looks at your hearts and deeds.", s:"Muslim"},
+  {t:"Whoever does not show mercy to people, Allah will not show mercy to him.", s:"Bukhari & Muslim"},
+  {t:"Smiling in the face of your brother is charity.", s:"Tirmidhi"},
+  {t:"Fear Allah wherever you are, follow a bad deed with a good one to erase it, and treat people with good character.", s:"Tirmidhi"},
+  {t:"The believer is not one who eats his fill while his neighbor beside him goes hungry.", s:"Al-Adab Al-Mufrad"},
+  {t:"Richness is not having many belongings, but richness is the richness of the soul.", s:"Bukhari & Muslim"},
+  {t:"Whoever treads a path seeking knowledge, Allah makes easy for him a path to Paradise.", s:"Muslim"},
+  {t:"Part of the perfection of one's Islam is leaving that which does not concern him.", s:"Tirmidhi"},
+  {t:"The merciful are shown mercy by the Most Merciful. Be merciful to those on earth.", s:"Abu Dawud & Tirmidhi"},
+  {t:"Do not belittle any good deed, even meeting your brother with a cheerful face.", s:"Muslim"},
+  {t:"Give the worker his wages before his sweat dries.", s:"Ibn Majah"}
+];
+
+function dayOfYear(d){ const s=new Date(d.getFullYear(),0,0); return Math.floor((d-s)/86400000); }
+let dailyOffset = 0;
+function pickDailyIndex(len){ return (dayOfYear(new Date())+dailyOffset) % len; }
+
+async function loadDaily(){
+  const doy = dayOfYear(new Date());
+  const key = DAILY_AYAHS[(doy+dailyOffset) % DAILY_AYAHS.length];
+  const had = DAILY_HADITHS[(doy+dailyOffset) % DAILY_HADITHS.length];
+  const dateEl=document.getElementById('dailyDate');
+  if(dateEl) dateEl.textContent = "· "+new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
+  // Hadith (offline-safe)
+  document.getElementById('dailyHadithText').textContent = '"'+had.t+'"';
+  document.getElementById('dailyHadithSrc').textContent = "— "+had.s;
+  // Ayah refs/links
+  const parts=key.split(":");
+  document.getElementById('dailyAyahRef').textContent = "· "+key;
+  const link=document.getElementById('dailyAyahLink');
+  link.href="https://quran.com/"+parts[0]+"/"+parts[1];
+  document.getElementById('dailyAyahPlay').onclick=()=>{ try{ playAyah(key, document.getElementById('dailyAyahPlay')); }catch(e){} };
+  const favBtn=document.getElementById('dailyAyahFav');
+  favBtn.textContent = (typeof isFav==="function" && isFav(key)) ? "★ Saved" : "☆ Save";
+  favBtn.onclick=()=>{ try{ toggleFav(key); favBtn.textContent=isFav(key)?"★ Saved":"☆ Save"; if(typeof refreshFavStars==="function")refreshFavStars(); }catch(e){} };
+  // Ayah text (live, cached; graceful offline)
+  const arEl=document.getElementById('dailyAyahAr'), enEl=document.getElementById('dailyAyahEn');
+  try{
+    const trId = (typeof currentTr==="function") ? currentTr() : "20";
+    const v = await fetchVerse(key, trId);
+    arEl.textContent = v.ar || "";
+    enEl.textContent = v.en || "";
+  }catch(e){
+    arEl.textContent=""; enEl.innerHTML='<span style="color:var(--muted)">Connect to the internet to load the verse text. <a href="'+link.href+'" target="_blank" style="color:var(--accent)">Open on quran.com ↗</a></span>';
+  }
+}
+(function initDaily(){
+  const rb=document.getElementById('dailyRefresh');
+  if(rb) rb.addEventListener('click',()=>{ dailyOffset++; loadDaily(); });
+  loadDaily();
+})();
+
 </script>
 </body>
 </html>
