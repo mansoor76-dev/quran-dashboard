@@ -520,6 +520,11 @@ categories.forEach(cat=>{
   b.onclick=()=>{activeCat=cat;[...filtersEl.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');render();};
   filtersEl.appendChild(b);
 });
+/* Favorites state must be initialized BEFORE the first render() because render()->wireFavButtons()->isFav() reads it. */
+const FAV_KEY="quranFavoritesV1";
+let favorites=[];
+try{ favorites=JSON.parse(localStorage.getItem(FAV_KEY)||"[]"); }catch(e){ favorites=[]; }
+
 search.addEventListener('input', render);
 render();
 
@@ -846,9 +851,6 @@ nameSearch.addEventListener('input',renderNames);
 renderNames();
 
 /* ================= (C) Favorites / bookmarks ================= */
-const FAV_KEY="quranFavoritesV1";
-let favorites=[];
-try{ favorites=JSON.parse(localStorage.getItem(FAV_KEY)||"[]"); }catch(e){ favorites=[]; }
 function saveFav(){ try{ localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); }catch(e){} }
 function isFav(key){ return favorites.includes(key); }
 function toggleFav(key){
